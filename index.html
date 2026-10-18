@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#111318">
+<title>Jukebox</title>
+<style>
+  :root {
+    --bg: #111318; --card: #1b1e26; --line: #2a2e39; --text: #eef0f4; --dim: #8b91a0;
+    --accent: #ff8a3d; --ok: #38c172; --bad: #e3534f;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 24px);
+    max-width: 560px; margin-inline: auto;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: .5px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dim); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); }
+  .dot.on { background: var(--ok); }
+  button {
+    font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 14px; cursor: pointer;
+  }
+  button:active { transform: scale(.97); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #1a1007; font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+  .art {
+    width: 100%; aspect-ratio: 1 / 1; max-height: 240px; border-radius: 12px; margin-bottom: 14px;
+    background: linear-gradient(135deg, #ff8a3d 0%, #b2456e 55%, #3d3a8c 100%);
+    display: grid; place-items: center; font-size: 64px; color: rgba(255,255,255,.85);
+  }
+  .title { font-size: 20px; font-weight: 650; margin: 0 0 2px; overflow-wrap: anywhere; }
+  .artist { color: var(--dim); margin: 0; overflow-wrap: anywhere; }
+  .meta { color: var(--dim); font-size: 13px; margin-top: 6px; display: flex; justify-content: space-between; gap: 8px; }
+  .controls { display: flex; justify-content: center; align-items: center; gap: 18px; margin: 18px 0 8px; }
+  .controls button { width: 58px; height: 58px; border-radius: 50%; font-size: 22px; padding: 0; }
+  .controls button.big { width: 74px; height: 74px; font-size: 30px; background: var(--accent); border-color: var(--accent); color: #1a1007; }
+  .row { display: flex; align-items: center; gap: 12px; }
+  .row + .row { margin-top: 12px; }
+  input[type=range] { flex: 1; accent-color: var(--accent); }
+  input[type=text] {
+    flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+  }
+  .toggle.on { background: var(--accent); border-color: var(--accent); color: #1a1007; }
+  h2 { font-size: 15px; color: var(--dim); font-weight: 600; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .6px; }
+  ul { list-style: none; margin: 10px 0 0; padding: 0; }
+  li { padding: 10px 4px; border-top: 1px solid var(--line); cursor: pointer; }
+  li:active { background: var(--line); }
+  li small { display: block; color: var(--dim); }
+  .hint { color: var(--dim); font-size: 13px; margin: 8px 0 0; }
+  .hidden { display: none; }
+  #msg { text-align: center; color: var(--dim); font-size: 14px; min-height: 20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Jukebox</h1>
+  <span class="pill"><span id="bleDot" class="dot"></span><span id="bleText">Not connected</span></span>
+</header>
+
+<div id="connectCard" class="card">
+  <p style="margin-top:0">Turn on the jukebox, then connect.</p>
+  <button id="connectBtn" class="primary" style="width:100%">Connect to Jukebox</button>
+  <p class="hint" id="supportHint"></p>
+</div>
+
+<div id="player" class="hidden">
+  <div class="card">
+    <div class="art">&#9835;</div>
+    <p class="title" id="title">—</p>
+    <p class="artist" id="artist"></p>
+    <div class="meta"><span id="album"></span><span id="trackNo"></span></div>
+    <div class="controls">
+      <button id="prevBtn" aria-label="Previous">&#9198;</button>
+      <button id="playBtn" class="big" aria-label="Play / pause">&#9654;</button>
+      <button id="nextBtn" aria-label="Next">&#9197;</button>
+    </div>
+    <div class="row">
+      <span aria-hidden="true">&#128264;</span>
+      <input id="vol" type="range" min="0" max="100" value="60" aria-label="Volume">
+      <span id="volText" style="width:42px;text-align:right">60%</span>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <button id="shuffleBtn" class="toggle">&#128256; Shuffle</button>
+      <span class="pill"><span id="spkDot" class="dot"></span><span id="spkText">Speaker</span></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Search</h2>
+    <form id="searchForm" class="row">
+      <input id="searchBox" type="text" placeholder="Artist, album or song" autocomplete="off">
+      <button class="primary" type="submit">Go</button>
+    </form>
+    <ul id="results"></ul>
+  </div>
+
+  <div class="card">
+    <h2>Speaker</h2>
+    <div class="row">
+      <input id="speakerBox" type="text" placeholder="Bluetooth name of the speaker">
+      <button id="speakerBtn">Save</button>
+    </div>
+    <p class="hint">Exact name as shown when pairing. The jukebox restarts and connects to it.</p>
+  </div>
+</div>
+
+<p id="msg"></p>
+
+<script>
+const SERVICE = "6e6a0001-8f2b-4b8e-9a6f-4a756b65626f";
+const CMD     = "6e6a0002-8f2b-4b8e-9a6f-4a756b65626f";
+const STATUS  = "6e6a0003-8f2b-4b8e-9a6f-4a756b65626f";
+const RESULT  = "6e6a0004-8f2b-4b8e-9a6f-4a756b65626f";
+
+const $ = id => document.getElementById(id);
+let device, cmdChar, status = {};
+const enc = new TextEncoder(), dec = new TextDecoder();
+
+if (!navigator.bluetooth) {
+  $("supportHint").textContent =
+    "This browser has no Bluetooth access. On iPhone, open this page in the free Bluefy app. On a PC, use Chrome or Edge.";
+}
+
+function say(t) { $("msg").textContent = t || ""; }
+
+// ---------------- connection ----------------
+$("connectBtn").onclick = connect;
+
+async function connect() {
+  try {
+    say("Searching…");
+    device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SERVICE] }] });
+    device.addEventListener("gattserverdisconnected", onDisconnected);
+    await openGatt();
+  } catch (e) {
+    say(e.message);
+  }
+}
+
+async function openGatt() {
+  const server = await device.gatt.connect();
+  const svc = await server.getPrimaryService(SERVICE);
+  cmdChar = await svc.getCharacteristic(CMD);
+  const st = await svc.getCharacteristic(STATUS);
+  const rs = await svc.getCharacteristic(RESULT);
+  st.addEventListener("characteristicvaluechanged", e => showStatus(dec.decode(e.target.value)));
+  rs.addEventListener("characteristicvaluechanged", e => addResult(dec.decode(e.target.value)));
+  await st.startNotifications();
+  await rs.startNotifications();
+  showStatus(dec.decode(await st.readValue()));
+  setConnected(true);
+  say("");
+}
+
+async function onDisconnected() {
+  setConnected(false);
+  say("Connection lost, reconnecting…");
+  for (let i = 0; i < 5; i++) {
+    try { await openGatt(); return; } catch (e) { await new Promise(r => setTimeout(r, 2000)); }
+  }
+  say("Could not reconnect. Tap Connect.");
+}
+
+function setConnected(on) {
+  $("bleDot").classList.toggle("on", on);
+  $("bleText").textContent = on ? "Connected" : "Not connected";
+  $("player").classList.toggle("hidden", !on);
+  $("connectCard").classList.toggle("hidden", on);
+}
+
+// Commands are queued so two quick taps never collide on Bluetooth.
+let queue = Promise.resolve();
+function send(text) {
+  if (!cmdChar) return;
+  queue = queue.then(() => cmdChar.writeValue(enc.encode(text))).catch(e => say(e.message));
+}
+
+// ---------------- status ----------------
+// state|index|count|volume|shuffle|speaker|seconds|title|artist|album
+function showStatus(s) {
+  const p = s.split("|");
+  if (p.length < 10) return;
+  status = { state: p[0], index: +p[1], count: +p[2], vol: +p[3], shuffle: p[4] === "1",
+             speaker: p[5] === "1", secs: +p[6], title: p[7], artist: p[8], album: p[9] };
+  $("title").textContent = status.title || "—";
+  $("artist").textContent = status.artist;
+  $("album").textContent = status.album;
+  $("trackNo").textContent = status.count ? `${status.index + 1} / ${status.count}` : "";
+  $("playBtn").innerHTML = status.state === "play" ? "&#10074;&#10074;" : "&#9654;";
+  if (!volDragging) { $("vol").value = status.vol; $("volText").textContent = status.vol + "%"; }
+  $("shuffleBtn").classList.toggle("on", status.shuffle);
+  $("spkDot").classList.toggle("on", status.speaker);
+  $("spkText").textContent = status.speaker ? "Speaker connected" : "Waiting for speaker";
+}
+
+// ---------------- controls ----------------
+$("playBtn").onclick = () => send("toggle");
+$("nextBtn").onclick = () => send("next");
+$("prevBtn").onclick = () => send("prev");
+$("shuffleBtn").onclick = () => send("shuffle:" + (status.shuffle ? 0 : 1));
+
+let volDragging = false, volTimer;
+$("vol").oninput = e => {
+  volDragging = true;
+  $("volText").textContent = e.target.value + "%";
+  clearTimeout(volTimer);
+  volTimer = setTimeout(() => { send("vol:" + e.target.value); volDragging = false; }, 150);
+};
+
+$("speakerBtn").onclick = () => {
+  const name = $("speakerBox").value.trim();
+  if (!name) return;
+  send("speaker:" + name);
+  say("Saved. The jukebox restarts — reconnect in a few seconds.");
+};
+
+// ---------------- search ----------------
+$("searchForm").onsubmit = e => {
+  e.preventDefault();
+  const q = $("searchBox").value.trim();
+  if (!q) return;
+  $("results").innerHTML = "";
+  say("Searching…");
+  send("find:" + q);
+  $("searchBox").blur();
+};
+
+function addResult(line) {
+  if (line === "end") {
+    say($("results").children.length ? "" : "Nothing found.");
+    return;
+  }
+  const [idx, artist, title] = line.split("\t");
+  const li = document.createElement("li");
+  li.innerHTML = "<span></span><small></small>";
+  li.firstChild.textContent = title;
+  li.lastChild.textContent = artist;
+  li.onclick = () => send("idx:" + idx);
+  $("results").appendChild(li);
+}
+</script>
+</body>
+</html>
