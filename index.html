@@ -104,11 +104,16 @@
 
   <div class="card">
     <h2>Speaker</h2>
-    <div class="row">
-      <input id="speakerBox" type="text" placeholder="Bluetooth name of the speaker">
-      <button id="speakerBtn">Save</button>
+    <p class="hint" style="margin-top:0">Speakers seen by the jukebox — tap one to use it.</p>
+    <ul id="speakers"></ul>
+    <div class="row" style="margin-top:12px">
+      <button id="scanBtn" class="primary" style="flex:1">Find speakers</button>
     </div>
-    <p class="hint">Exact name as shown when pairing. The jukebox restarts and connects to it.</p>
+    <p class="hint">Put your speaker in pairing mode first. The jukebox restarts (about 20 s) and lists every speaker it finds.</p>
+    <div class="row" style="margin-top:12px">
+      <input id="speakerBox" type="text" placeholder="Or type the speaker name">
+      <button id="speakerBtn">Use</button>
+    </div>
   </div>
 </div>
 
@@ -156,6 +161,8 @@ async function openGatt() {
   await st.startNotifications();
   await rs.startNotifications();
   showStatus(dec.decode(await st.readValue()));
+  $("speakers").innerHTML = "";
+  send("speakers");                       // ask for the list of speakers seen
   setConnected(true);
   say("");
 }
@@ -217,9 +224,7 @@ $("vol").oninput = e => {
 
 $("speakerBtn").onclick = () => {
   const name = $("speakerBox").value.trim();
-  if (!name) return;
-  send("speaker:" + name);
-  say("Saved. The jukebox restarts — reconnect in a few seconds.");
+  if (name) chooseSpeaker(name);
 };
 
 // ---------------- search ----------------
@@ -233,9 +238,40 @@ $("searchForm").onsubmit = e => {
   $("searchBox").blur();
 };
 
+function chooseSpeaker(name) {
+  send("speaker:" + name);
+  say("Using " + name + ". The jukebox restarts and connects — reconnecting…");
+}
+
+$("scanBtn").onclick = () => {
+  $("speakers").innerHTML = "";
+  send("scan");
+  say("Looking for speakers… the jukebox restarts, wait about 20 seconds.");
+};
+
+function addSpeaker(name, rssi) {
+  let li = [...$("speakers").children].find(x => x.dataset.name === name);
+  if (!li) {
+    li = document.createElement("li");
+    li.dataset.name = name;
+    li.innerHTML = "<span></span><small></small>";
+    li.onclick = () => chooseSpeaker(name);
+    $("speakers").appendChild(li);
+  }
+  const bars = rssi > -60 ? "▮▮▮" : rssi > -75 ? "▮▮▯" : "▮▯▯";
+  li.firstChild.textContent = "🔊 " + name;
+  li.lastChild.textContent = "Signal " + bars + (status.speaker ? "" : "  — tap to connect");
+}
+
 function addResult(line) {
+  if (line.startsWith("spk\t")) {
+    const [, name, rssi] = line.split("\t");
+    addSpeaker(name, +rssi);
+    return;
+  }
   if (line === "end") {
-    say($("results").children.length ? "" : "Nothing found.");
+    const n = $("results").children.length;
+    say(n ? n + (n === 1 ? " song" : " songs") + " found" : "Nothing found.");
     return;
   }
   const [idx, artist, title] = line.split("\t");
