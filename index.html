@@ -2,122 +2,253 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#111318">
+<meta name="theme-color" content="#151520">
 <title>Jukebox</title>
 <style>
+  /* Classic 1990s MP3 player look: grey beveled windows, black LCD, green text */
   :root {
-    --bg: #111318; --card: #1b1e26; --line: #2a2e39; --text: #eef0f4; --dim: #8b91a0;
-    --accent: #ff8a3d; --ok: #38c172; --bad: #e3534f;
+    --desk: #151520;
+    --frame: #3a3a4e; --frame-hi: #6b6b85; --frame-lo: #18181f;
+    --face: #2b2b3a; --title1: #c8b46a; --title2: #6e6232;
+    --lcd: #000; --green: #00e000; --green-dim: #0a5a0a; --green-mid: #00a000;
+    --sel: #0000c6; --white: #fff; --amber: #ffb000; --red: #ff3030; --blue: #48a0ff;
+    --btn: #8a8aa0; --btn-hi: #d4d4e4; --btn-lo: #3c3c4c;
   }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+  html { background: var(--desk); }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 24px);
-    max-width: 560px; margin-inline: auto;
+    margin: 0 auto; max-width: 440px; color: var(--green); background: var(--desk);
+    font: 12px/1.25 Tahoma, Verdana, "Segoe UI", Arial, sans-serif;
+    padding: calc(env(safe-area-inset-top) + 8px) 8px calc(env(safe-area-inset-bottom) + 16px);
   }
-  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-  h1 { font-size: 22px; margin: 0; letter-spacing: .5px; }
-  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dim); }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); }
-  .dot.on { background: var(--ok); }
+  input { -webkit-user-select: text; user-select: text; }
+
+  /* ---------- windows ---------- */
+  .win {
+    background: var(--face); margin-bottom: 8px;
+    border: 2px solid; border-color: var(--frame-hi) var(--frame-lo) var(--frame-lo) var(--frame-hi);
+    box-shadow: 0 0 0 1px #000;
+  }
+  .tbar {
+    display: flex; align-items: center; gap: 6px; height: 16px; padding: 0 4px;
+    background: linear-gradient(#2e2e40, #20202c); cursor: pointer;
+  }
+  .tbar .stripes {
+    flex: 1; height: 6px;
+    background: repeating-linear-gradient(to bottom, var(--title1) 0 1px, var(--title2) 1px 2px, transparent 2px 3px);
+  }
+  .tbar .name {
+    color: #e8e0b8; font: bold 9px/1 Tahoma, Verdana, sans-serif; letter-spacing: 2px; white-space: nowrap;
+  }
+  .tbar .ctl { width: 9px; height: 9px; border: 1px solid #9a9070; background: #33332a; flex: none; }
+  .wbody { padding: 6px; }
+  .win.shut .wbody { display: none; }
+
+  /* ---------- LCD ---------- */
+  .lcd {
+    background: var(--lcd); border: 2px solid; border-color: var(--frame-lo) var(--frame-hi) var(--frame-hi) var(--frame-lo);
+    padding: 4px 6px; font-family: "Courier New", Courier, monospace; color: var(--green);
+  }
+  .lcdtop { display: flex; gap: 8px; align-items: stretch; }
+  .lcdleft { width: 118px; flex: none; display: flex; flex-direction: column; gap: 3px; }
+  .timerow { display: flex; align-items: center; gap: 6px; }
+  .stateicon { width: 10px; font-size: 10px; color: var(--green); text-align: center; }
+  .time {
+    font: bold 30px/1 "Courier New", Courier, monospace; letter-spacing: 1px; color: var(--green);
+    text-shadow: 0 0 4px rgba(0,224,0,.55);
+  }
+  .time.blink { animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  canvas#vis { width: 100%; height: 26px; display: block; }
+  .lcdright { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 4px; }
+  .marquee { overflow: hidden; white-space: nowrap; border: 1px solid var(--green-dim); padding: 2px 3px; height: 18px; }
+  .marquee span { display: inline-block; font-size: 12px; will-change: transform; }
+  .marquee.scroll span { animation: scrollx var(--dur, 12s) linear infinite; padding-left: 100%; }
+  @keyframes scrollx { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+  .info { display: flex; gap: 6px; flex-wrap: wrap; font-size: 9px; align-items: center; }
+  .info b { font-weight: normal; color: var(--green); border: 1px solid var(--green-dim); padding: 0 3px; }
+  .lamp { color: var(--green-dim); font-size: 9px; letter-spacing: 1px; }
+  .lamp.on { color: var(--green); text-shadow: 0 0 3px rgba(0,224,0,.7); }
+  .lamp.warn { color: var(--amber); animation: blink 1s steps(1) infinite; }
+  .lamp.bad { color: var(--red); }
+  .lamp.scan { color: var(--blue); }
+  .msg { font-size: 10px; color: var(--green-mid); min-height: 13px; margin-top: 3px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+  /* ---------- sliders ---------- */
+  .bars { display: flex; gap: 6px; align-items: center; margin: 6px 0 4px; }
+  .bars label { font-size: 9px; color: #c8c8d8; letter-spacing: 1px; width: 26px; }
+  input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; height: 10px; margin: 0; background: transparent; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 8px; border: 1px solid #000;
+    background: linear-gradient(to right, #1c6b10, #8fb000 60%, #d03000);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 10px; margin-top: -2px;
+    background: linear-gradient(#e0e0ee, #8a8aa0); border: 1px solid #000;
+  }
+  .seek { flex: 1; height: 10px; background: #111; border: 1px solid; border-color: var(--frame-lo) var(--frame-hi) var(--frame-hi) var(--frame-lo); position: relative; }
+  .seek i { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: linear-gradient(#5a5a8a, #2a2a50); }
+  .seek i::after { content: ""; position: absolute; right: -7px; top: -1px; width: 14px; height: 10px; background: linear-gradient(#e0e0ee, #8a8aa0); border: 1px solid #000; }
+
+  /* ---------- buttons ---------- */
+  .transport { display: flex; gap: 3px; align-items: center; margin-top: 6px; }
   button {
-    font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line);
-    border-radius: 12px; padding: 10px 14px; cursor: pointer;
+    font: bold 11px/1 Tahoma, Verdana, sans-serif; color: #111; cursor: pointer;
+    background: linear-gradient(#c6c6d6, #8a8aa0); padding: 0 8px; height: 28px; border-radius: 0;
+    border: 2px solid; border-color: var(--btn-hi) var(--btn-lo) var(--btn-lo) var(--btn-hi);
   }
-  button:active { transform: scale(.97); }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #1a1007; font-weight: 600; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
-  .art {
-    width: 100%; aspect-ratio: 1 / 1; max-height: 240px; border-radius: 12px; margin-bottom: 14px;
-    background: linear-gradient(135deg, #ff8a3d 0%, #b2456e 55%, #3d3a8c 100%);
-    display: grid; place-items: center; font-size: 64px; color: rgba(255,255,255,.85);
+  button:active, button.down { border-color: var(--btn-lo) var(--btn-hi) var(--btn-hi) var(--btn-lo); background: linear-gradient(#8a8aa0, #b6b6c6); }
+  .transport button { width: 40px; padding: 0; font-size: 14px; }
+  .transport .grow { flex: 1; }
+  .transport .tog { width: auto; padding: 0 6px; font-size: 9px; letter-spacing: 1px; }
+  .tog.on { color: var(--green); background: linear-gradient(#202028, #34343e); border-color: var(--btn-lo) var(--btn-hi) var(--btn-hi) var(--btn-lo); text-shadow: 0 0 3px rgba(0,224,0,.7); }
+  button.wide { width: 100%; height: 34px; font-size: 12px; letter-spacing: 1px; }
+
+  /* ---------- playlist ---------- */
+  .search { display: flex; gap: 4px; margin-bottom: 4px; }
+  .search input, .field {
+    flex: 1; min-width: 0; height: 28px; padding: 0 6px; border-radius: 0; outline: none;
+    background: #000; color: var(--green); font: 14px "Courier New", Courier, monospace;
+    border: 2px solid; border-color: var(--frame-lo) var(--frame-hi) var(--frame-hi) var(--frame-lo);
   }
-  .title { font-size: 20px; font-weight: 650; margin: 0 0 2px; overflow-wrap: anywhere; }
-  .artist { color: var(--dim); margin: 0; overflow-wrap: anywhere; }
-  .meta { color: var(--dim); font-size: 13px; margin-top: 6px; display: flex; justify-content: space-between; gap: 8px; }
-  .controls { display: flex; justify-content: center; align-items: center; gap: 18px; margin: 18px 0 8px; }
-  .controls button { width: 58px; height: 58px; border-radius: 50%; font-size: 22px; padding: 0; }
-  .controls button.big { width: 74px; height: 74px; font-size: 30px; background: var(--accent); border-color: var(--accent); color: #1a1007; }
-  .row { display: flex; align-items: center; gap: 12px; }
-  .row + .row { margin-top: 12px; }
-  input[type=range] { flex: 1; accent-color: var(--accent); }
-  input[type=text] {
-    flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--bg);
-    border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+  .search input::placeholder, .field::placeholder { color: var(--green-dim); }
+  .plist {
+    background: #000; height: 46vh; min-height: 220px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    border: 2px solid; border-color: var(--frame-lo) var(--frame-hi) var(--frame-hi) var(--frame-lo);
+    font: 12px/1 Arial, Helvetica, sans-serif;
   }
-  .toggle.on { background: var(--accent); border-color: var(--accent); color: #1a1007; }
-  h2 { font-size: 15px; color: var(--dim); font-weight: 600; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .6px; }
-  ul { list-style: none; margin: 10px 0 0; padding: 0; }
-  li { padding: 10px 4px; border-top: 1px solid var(--line); cursor: pointer; }
-  li:active { background: var(--line); }
-  li small { display: block; color: var(--dim); }
-  .hint { color: var(--dim); font-size: 13px; margin: 8px 0 0; }
-  .hidden { display: none; }
-  #msg { text-align: center; color: var(--dim); font-size: 14px; min-height: 20px; }
+  .plist ol { list-style: none; margin: 0; padding: 0; }
+  .plist li { display: flex; gap: 6px; padding: 6px 4px; color: var(--green); cursor: pointer; }
+  .plist li .n { color: var(--green-mid); flex: none; min-width: 26px; text-align: right; }
+  .plist li .t { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .plist li .d { flex: none; color: var(--green-mid); }
+  .plist li.cur, .plist li.cur .n, .plist li.cur .d { color: var(--white); }
+  .plist li:active, .plist li.sel { background: var(--sel); }
+  .plist .empty { color: var(--green-mid); padding: 10px 6px; font-size: 11px; line-height: 1.5; }
+  .plbar { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; gap: 4px; }
+  .plbar .lcd { padding: 2px 6px; font-size: 10px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ---------- speaker ---------- */
+  .spkhead { display: flex; align-items: center; gap: 8px; }
+  .led { width: 12px; height: 12px; border-radius: 50%; flex: none; background: #400; border: 1px solid #000; box-shadow: inset 0 -2px 2px rgba(0,0,0,.5); }
+  .led.on { background: #0f0; box-shadow: 0 0 6px #0f0; }
+  .led.warn { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation: blink 1s steps(1) infinite; }
+  .led.bad { background: var(--red); box-shadow: 0 0 5px var(--red); }
+  .led.scan { background: var(--blue); box-shadow: 0 0 6px var(--blue); animation: blink 1s steps(1) infinite; }
+  .spktext { flex: 1; min-width: 0; }
+  .spktext .big { font-size: 13px; font-weight: bold; }
+  .spktext .small { font-size: 10px; color: var(--green-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row { display: flex; gap: 4px; margin-top: 6px; }
+  .row button { flex: 1; }
+  .hint { color: #a8a8bc; font-size: 10px; line-height: 1.45; margin: 6px 0 0; }
+  .hint b { color: #e0e0ee; }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
-<header>
-  <h1>Jukebox</h1>
-  <span class="pill"><span id="bleDot" class="dot"></span><span id="bleText">Not connected</span></span>
-</header>
 
-<div id="connectCard" class="card">
-  <p style="margin-top:0">Turn on the jukebox, then connect.</p>
-  <button id="connectBtn" class="primary" style="width:100%">Connect to Jukebox</button>
-  <p class="hint" id="supportHint"></p>
+<!-- ================= MAIN WINDOW ================= -->
+<div class="win" id="mainWin">
+  <div class="tbar"><span class="ctl"></span><span class="stripes"></span><span class="name">JUKEBOX</span><span class="stripes"></span><span class="ctl"></span></div>
+  <div class="wbody">
+    <div class="lcd">
+      <div class="lcdtop">
+        <div class="lcdleft">
+          <div class="timerow"><span class="stateicon" id="stateIcon">&#9632;</span><span class="time" id="time">00:00</span></div>
+          <canvas id="vis" width="236" height="52"></canvas>
+        </div>
+        <div class="lcdright">
+          <div class="marquee" id="marquee"><span id="marqueeText">*** JUKEBOX *** NOT CONNECTED ***</span></div>
+          <div class="info">
+            <b id="trackNo">--/--</b>
+            <span class="lamp" id="lampPhone">PHONE</span>
+            <span class="lamp" id="lampSpk">SPEAKER</span>
+            <span class="lamp" id="lampShuf">SHUF</span>
+          </div>
+          <div class="msg" id="msg"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="connectBox">
+      <button class="wide" id="connectBtn" style="margin-top:6px">&#9655; CONNECT TO JUKEBOX</button>
+      <p class="hint" id="supportHint">Turn the jukebox on, then tap Connect.</p>
+    </div>
+
+    <div id="controls" class="hidden">
+      <div class="bars"><label>TIME</label><div class="seek"><i id="seekFill"></i></div></div>
+      <div class="bars"><label>VOL</label><input id="vol" type="range" min="0" max="100" value="60" aria-label="Volume"><span id="volText" style="width:30px;text-align:right;font-size:10px">60%</span></div>
+      <div class="transport">
+        <button id="prevBtn" aria-label="Previous">&#9198;</button>
+        <button id="playBtn" aria-label="Play">&#9654;</button>
+        <button id="pauseBtn" aria-label="Pause">&#10074;&#10074;</button>
+        <button id="stopBtn" aria-label="Stop">&#9632;</button>
+        <button id="nextBtn" aria-label="Next">&#9197;</button>
+        <span class="grow"></span>
+        <button id="shuffleBtn" class="tog" aria-label="Shuffle">SHUFFLE</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="player" class="hidden">
-  <div class="card">
-    <div class="art">&#9835;</div>
-    <p class="title" id="title">—</p>
-    <p class="artist" id="artist"></p>
-    <div class="meta"><span id="album"></span><span id="trackNo"></span></div>
-    <div class="controls">
-      <button id="prevBtn" aria-label="Previous">&#9198;</button>
-      <button id="playBtn" class="big" aria-label="Play / pause">&#9654;</button>
-      <button id="nextBtn" aria-label="Next">&#9197;</button>
-    </div>
-    <div class="row">
-      <span aria-hidden="true">&#128264;</span>
-      <input id="vol" type="range" min="0" max="100" value="60" aria-label="Volume">
-      <span id="volText" style="width:42px;text-align:right">60%</span>
-    </div>
-    <div class="row" style="justify-content:space-between">
-      <button id="shuffleBtn" class="toggle">&#128256; Shuffle</button>
-      <span class="pill"><span id="spkDot" class="dot"></span><span id="spkText">Speaker</span></span>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>Search</h2>
-    <form id="searchForm" class="row">
-      <input id="searchBox" type="text" placeholder="Artist, album or song" autocomplete="off">
-      <button class="primary" type="submit">Go</button>
+<!-- ================= PLAYLIST / SEARCH ================= -->
+<div class="win" id="plWin">
+  <div class="tbar" data-toggle="plWin"><span class="ctl"></span><span class="stripes"></span><span class="name">JUKEBOX PLAYLIST</span><span class="stripes"></span><span class="ctl"></span></div>
+  <div class="wbody">
+    <form class="search" id="searchForm">
+      <input id="searchBox" type="search" placeholder="search artist, album, song..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <button type="button" id="clearBtn" aria-label="Clear search">CLR</button>
     </form>
-    <ul id="results"></ul>
-  </div>
-
-  <div class="card">
-    <h2>Speaker</h2>
-    <p class="hint" style="margin-top:0">Speakers seen by the jukebox — tap one to use it.</p>
-    <ul id="speakers"></ul>
-    <div class="row" style="margin-top:12px">
-      <button id="scanBtn" class="primary" style="flex:1">Find speakers</button>
+    <div class="plist" id="plist">
+      <ol id="results"></ol>
+      <div class="empty" id="plEmpty">Type a few letters to search your music on the SD card. Spelling doesn't need to be exact: "metalica", "ac dc" and "celine" all work.</div>
     </div>
-    <p class="hint">Put your speaker in pairing mode first. The jukebox restarts (about 20 s) and lists every speaker it finds.</p>
-    <div class="row" style="margin-top:12px">
-      <input id="speakerBox" type="text" placeholder="Or type the speaker name">
-      <button id="speakerBtn">Use</button>
+    <div class="plbar">
+      <div class="lcd" id="plInfo">0 songs</div>
+      <button id="curBtn" aria-label="Show current song">CUR</button>
     </div>
   </div>
 </div>
 
-<p id="msg"></p>
+<!-- ================= SPEAKER ================= -->
+<div class="win" id="spkWin">
+  <div class="tbar" data-toggle="spkWin"><span class="ctl"></span><span class="stripes"></span><span class="name">SPEAKER</span><span class="stripes"></span><span class="ctl"></span></div>
+  <div class="wbody">
+    <div class="lcd spkhead">
+      <span class="led" id="spkLed"></span>
+      <div class="spktext">
+        <div class="big" id="spkState">Waiting for speaker</div>
+        <div class="small" id="spkName">Speaker: —</div>
+      </div>
+    </div>
+    <div class="row">
+      <button id="reconnectBtn">RECONNECT</button>
+      <button id="scanBtn">FIND SPEAKERS</button>
+    </div>
+    <div class="plist" style="height:auto;min-height:0;max-height:180px;margin-top:6px">
+      <ol id="speakers"></ol>
+      <div class="empty" id="spkEmpty">No speakers listed yet. Put your speaker in pairing mode and tap Find speakers.</div>
+    </div>
+    <div class="row">
+      <input class="field" id="speakerBox" type="text" placeholder="or type the speaker name" autocomplete="off" autocorrect="off" autocapitalize="off">
+      <button id="speakerBtn" style="flex:none">USE</button>
+    </div>
+    <p class="hint">The jukebox reconnects by itself when the speaker comes back (every 15 s for 5 minutes, then every minute). Find speakers restarts the jukebox (about 20 s) and lists what it sees: tap one to use it.</p>
+  </div>
+</div>
+
+<!-- ================= OPTIONS ================= -->
+<div class="win shut" id="optWin">
+  <div class="tbar" data-toggle="optWin"><span class="ctl"></span><span class="stripes"></span><span class="name">OPTIONS</span><span class="stripes"></span><span class="ctl"></span></div>
+  <div class="wbody">
+    <button class="wide" id="otaBtn">SOFTWARE UPDATE MODE (WI-FI)</button>
+    <p class="hint">Only works when <b>USE_OTA</b> is 1 in config.h. Music stops and the jukebox restarts with Wi-Fi on. Then, in VS Code, choose <b>env:esp32s_ota</b> and click Upload within 10 minutes. It restarts by itself when done; then tap Connect here.</p>
+  </div>
+</div>
+</div>
 
 <script>
 const SERVICE = "6e6a0001-8f2b-4b8e-9a6f-4a756b65626f";
@@ -126,7 +257,7 @@ const STATUS  = "6e6a0003-8f2b-4b8e-9a6f-4a756b65626f";
 const RESULT  = "6e6a0004-8f2b-4b8e-9a6f-4a756b65626f";
 
 const $ = id => document.getElementById(id);
-let device, cmdChar, status = {};
+let device, cmdChar, status = {}, connected = false;
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 if (!navigator.bluetooth) {
@@ -134,14 +265,32 @@ if (!navigator.bluetooth) {
     "This browser has no Bluetooth access. On iPhone, open this page in the free Bluefy app. On a PC, use Chrome or Edge.";
 }
 
-function say(t) { $("msg").textContent = t || ""; }
+let msgTimer;
+function say(t, keep) {
+  $("msg").textContent = t || "";
+  clearTimeout(msgTimer);
+  if (t && !keep) msgTimer = setTimeout(() => $("msg").textContent = "", 6000);
+}
 
-// ---------------- connection ----------------
+const mmss = s => (s = Math.max(0, s | 0), String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"));
+const mss = s => s ? Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") : "";
+
+// windows fold open/closed by tapping their title bar (remembered on this phone)
+document.querySelectorAll("[data-toggle]").forEach(bar => {
+  const win = $(bar.dataset.toggle);
+  try { const v = localStorage.getItem("shut:" + win.id); if (v !== null) win.classList.toggle("shut", v === "1"); } catch (e) {}
+  bar.onclick = () => {
+    win.classList.toggle("shut");
+    try { localStorage.setItem("shut:" + win.id, win.classList.contains("shut") ? "1" : "0"); } catch (e) {}
+  };
+});
+
+// ---------------- connection to the jukebox (BLE) ----------------
 $("connectBtn").onclick = connect;
 
 async function connect() {
   try {
-    say("Searching…");
+    say("Searching...", true);
     device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SERVICE] }] });
     device.addEventListener("gattserverdisconnected", onDisconnected);
     await openGatt();
@@ -159,7 +308,7 @@ async function connect() {
     if (!known.length) return;
     device = known[0];
     device.addEventListener("gattserverdisconnected", onDisconnected);
-    say("Reconnecting to the jukebox…");
+    say("Reconnecting to the jukebox...", true);
     await openGatt();
   } catch (e) { say(""); }
 })();
@@ -174,27 +323,39 @@ async function openGatt() {
   rs.addEventListener("characteristicvaluechanged", e => addResult(dec.decode(e.target.value)));
   await st.startNotifications();
   await rs.startNotifications();
+  timeKnown = false;
   showStatus(dec.decode(await st.readValue()));
-  $("speakers").innerHTML = "";
-  send("speakers");                       // ask for the list of speakers seen
+  clearSpeakers();
+  send("speakers");                       // ask for the wanted speaker and the speakers seen
   setConnected(true);
   say("");
+  const q = $("searchBox").value.trim();  // search again after a reconnect
+  if (q.length >= 2) runSearch(q);
 }
+
+let updating = false;     // true after "Update mode": the jukebox is on Wi-Fi, don't chase it
 
 async function onDisconnected() {
   setConnected(false);
-  say("Connection lost, reconnecting…");
+  if (updating) {
+    updating = false;
+    say("Update mode: in VS Code choose env:esp32s_ota and click Upload. When it's done, tap Connect.", true);
+    return;
+  }
+  say("Connection lost, reconnecting...", true);
   for (let i = 0; i < 5; i++) {
     try { await openGatt(); return; } catch (e) { await new Promise(r => setTimeout(r, 2000)); }
   }
-  say("Could not reconnect. Tap Connect.");
+  say("Could not reconnect. Tap Connect.", true);
 }
 
 function setConnected(on) {
-  $("bleDot").classList.toggle("on", on);
-  $("bleText").textContent = on ? "Connected" : "Not connected";
+  connected = on;
+  $("lampPhone").classList.toggle("on", on);
   $("player").classList.toggle("hidden", !on);
-  $("connectCard").classList.toggle("hidden", on);
+  $("controls").classList.toggle("hidden", !on);
+  $("connectBox").classList.toggle("hidden", on);
+  if (!on) { setMarquee("*** JUKEBOX *** NOT CONNECTED ***"); showSpeaker(-1); }
 }
 
 // Commands are queued so two quick taps never collide on Bluetooth.
@@ -206,24 +367,107 @@ function send(text) {
 
 // ---------------- status ----------------
 // state|index|count|volume|shuffle|speaker|seconds|title|artist|album
+// speaker: 0 = not connected, 1 = connected, 2 = connecting, 3 = scan mode
+let elapsed = 0, timeKnown = false, lastKey = "";
 function showStatus(s) {
   const p = s.split("|");
   if (p.length < 10) return;
-  status = { state: p[0], index: +p[1], count: +p[2], vol: +p[3], shuffle: p[4] === "1",
-             speaker: p[5] === "1", secs: +p[6], title: p[7], artist: p[8], album: p[9] };
-  $("title").textContent = status.title || "—";
-  $("artist").textContent = status.artist;
-  $("album").textContent = status.album;
-  $("trackNo").textContent = status.count ? `${status.index + 1} / ${status.count}` : "";
-  $("playBtn").innerHTML = status.state === "play" ? "&#10074;&#10074;" : "&#9654;";
+  const prev = status;
+  status = { state: p[0].trim(), index: +p[1], count: +p[2], vol: +p[3], shuffle: p[4] === "1",
+             speaker: +p[5], secs: +p[6], title: p[7], artist: p[8], album: (p[9] || "").trim() };
+  const key = status.index + "|" + status.title;
+  if (lastKey && key !== lastKey) { elapsed = 0; timeKnown = true; }   // new song: the clock is exact from here
+  if (prev.state === "stop" && status.state === "play") { elapsed = 0; timeKnown = true; }
+  lastKey = key;
+
+  const name = (status.artist ? status.artist + " - " : "") + (status.title || "");
+  setMarquee(name ? `${status.index + 1}. ${name}${status.secs ? " (" + mss(status.secs) + ")" : ""}` : "*** JUKEBOX ***");
+  $("trackNo").textContent = status.count ? `${status.index + 1}/${status.count}` : "--/--";
+  $("stateIcon").innerHTML = status.state === "play" ? "&#9654;" : status.state === "pause" ? "&#10074;&#10074;" : "&#9632;";
+  $("playBtn").classList.toggle("down", status.state === "play");
+  $("pauseBtn").classList.toggle("down", status.state === "pause");
   if (!volDragging) { $("vol").value = status.vol; $("volText").textContent = status.vol + "%"; }
   $("shuffleBtn").classList.toggle("on", status.shuffle);
-  $("spkDot").classList.toggle("on", status.speaker);
-  $("spkText").textContent = status.speaker ? "Speaker connected" : "Waiting for speaker";
+  $("lampShuf").classList.toggle("on", status.shuffle);
+  $("plInfo").textContent = `${status.count} songs on the card`;
+  showSpeaker(status.speaker);
+  markCurrent();
+  drawTime();
 }
 
+let marqueeText = "";
+function setMarquee(t) {
+  if (t === marqueeText) return;
+  marqueeText = t;
+  const box = $("marquee"), span = $("marqueeText");
+  span.textContent = t;
+  box.classList.remove("scroll");
+  requestAnimationFrame(() => {
+    if (span.scrollWidth > box.clientWidth) {
+      span.textContent = t + "  ***  ";
+      box.style.setProperty("--dur", Math.max(6, t.length / 4) + "s");
+      box.classList.add("scroll");
+    }
+  });
+}
+
+// The jukebox doesn't send the play position, so the clock counts here.
+// After (re)connecting in the middle of a song it shows the song length until the next song.
+setInterval(() => {
+  if (connected && status.state === "play" && status.speaker === 1) elapsed++;
+  drawTime();
+}, 1000);
+
+function drawTime() {
+  const t = $("time");
+  t.textContent = !connected ? "00:00" : timeKnown ? mmss(elapsed) : mmss(status.secs || 0);
+  t.classList.toggle("blink", connected && status.state === "pause");
+  const pct = timeKnown && status.secs ? Math.min(100, elapsed * 100 / status.secs) : 0;
+  $("seekFill").style.width = pct + "%";
+}
+
+function showSpeaker(code) {
+  const led = $("spkLed"), lamp = $("lampSpk");
+  led.className = "led"; lamp.className = "lamp";
+  let text;
+  if (code === 1)      { led.classList.add("on");   lamp.classList.add("on");   text = "Speaker connected"; }
+  else if (code === 2) { led.classList.add("warn"); lamp.classList.add("warn"); text = "Connecting..."; }
+  else if (code === 3) { led.classList.add("scan"); lamp.classList.add("scan"); text = "Looking for speakers"; }
+  else if (code === 0) { led.classList.add("bad");  lamp.classList.add("bad");  text = "Speaker not connected"; }
+  else text = "Jukebox not connected";
+  $("spkState").textContent = text;
+  $("reconnectBtn").disabled = code !== 0;
+}
+
+// ---------------- visualizer (just for show, drawn on the phone) ----------------
+const vis = $("vis"), vctx = vis.getContext("2d");
+const NB = 19, lv = new Array(NB).fill(0), pk = new Array(NB).fill(0);
+let lastFrame = 0;
+function frame(ts) {
+  requestAnimationFrame(frame);
+  if (ts - lastFrame < 50) return;           // about 20 frames a second is plenty
+  lastFrame = ts;
+  const live = connected && status.state === "play" && status.speaker === 1;
+  const W = vis.width, H = vis.height, bw = W / NB;
+  vctx.fillStyle = "#000"; vctx.fillRect(0, 0, W, H);
+  for (let i = 0; i < NB; i++) {
+    const target = live ? Math.random() ** 1.6 * (1 - i / (NB * 1.4)) * H * 1.1 : 0;
+    lv[i] = target > lv[i] ? target : Math.max(0, lv[i] - H * 0.08);
+    pk[i] = lv[i] >= pk[i] ? lv[i] : Math.max(0, pk[i] - H * 0.025);
+    const h = Math.min(H, lv[i]);
+    const g = vctx.createLinearGradient(0, H, 0, 0);
+    g.addColorStop(0, "#109010"); g.addColorStop(.55, "#c8c800"); g.addColorStop(1, "#e02000");
+    vctx.fillStyle = g;
+    vctx.fillRect(i * bw + 1, H - h, bw - 3, h);
+    if (pk[i] > 1) { vctx.fillStyle = "#b0b0c0"; vctx.fillRect(i * bw + 1, H - Math.min(H, pk[i]) - 2, bw - 3, 2); }
+  }
+}
+requestAnimationFrame(frame);
+
 // ---------------- controls ----------------
-$("playBtn").onclick = () => send("toggle");
+$("playBtn").onclick = () => send("play");
+$("pauseBtn").onclick = () => send(status.state === "pause" ? "play" : "pause");
+$("stopBtn").onclick = () => send("stop");
 $("nextBtn").onclick = () => send("next");
 $("prevBtn").onclick = () => send("prev");
 $("shuffleBtn").onclick = () => send("shuffle:" + (status.shuffle ? 0 : 1));
@@ -236,65 +480,119 @@ $("vol").oninput = e => {
   volTimer = setTimeout(() => { send("vol:" + e.target.value); volDragging = false; }, 150);
 };
 
+// ---------------- search (runs on the jukebox, results arrive one by one) ----------------
+let searchTimer, searchQuery = "";
+$("searchBox").oninput = () => {
+  clearTimeout(searchTimer);
+  const q = $("searchBox").value.trim();
+  if (q.length >= 2) searchTimer = setTimeout(() => runSearch(q), 600);   // search while typing
+  else if (!q) clearResults();
+};
+$("searchForm").onsubmit = e => {
+  e.preventDefault();
+  clearTimeout(searchTimer);
+  const q = $("searchBox").value.trim();
+  if (q) runSearch(q);
+  $("searchBox").blur();
+};
+$("clearBtn").onclick = () => { $("searchBox").value = ""; clearResults(); };
+$("curBtn").onclick = () => {
+  const li = $("results").querySelector("li.cur");
+  if (li) li.scrollIntoView({ block: "center" });
+  else if (status.artist) { $("searchBox").value = status.artist; runSearch(status.artist); }
+};
+
+function runSearch(q) {
+  if (q === searchQuery && $("results").children.length && !searching) return;
+  searchQuery = q;
+  clearResults(true);
+  searching = true;
+  $("plInfo").textContent = "searching...";
+  send("find:" + q);
+}
+
+let searching = false;
+function clearResults(keepHint) {
+  $("results").innerHTML = "";
+  $("plEmpty").classList.toggle("hidden", !!keepHint);
+  if (!keepHint) { searchQuery = ""; $("plInfo").textContent = `${status.count || 0} songs on the card`; }
+}
+
+function markCurrent() {
+  for (const li of $("results").children) li.classList.toggle("cur", +li.dataset.idx === status.index);
+}
+
+function addSong(idx, artist, title, secs) {
+  const li = document.createElement("li");
+  li.dataset.idx = idx;
+  li.innerHTML = '<span class="n"></span><span class="t"></span><span class="d"></span>';
+  li.children[0].textContent = ($("results").children.length + 1) + ".";
+  li.children[1].textContent = (artist ? artist + " - " : "") + title;
+  li.children[2].textContent = mss(+secs || 0);
+  li.classList.toggle("cur", +idx === status.index);
+  li.onclick = () => {
+    for (const x of $("results").querySelectorAll(".sel")) x.classList.remove("sel");
+    li.classList.add("sel");
+    timeKnown = true; elapsed = 0;
+    send("idx:" + idx);
+  };
+  $("results").appendChild(li);
+  $("plInfo").textContent = `${$("results").children.length} found...`;
+}
+
+// ---------------- speaker ----------------
+$("reconnectBtn").onclick = () => { send("reconnect"); say("Trying the speaker now..."); };
+$("scanBtn").onclick = () => {
+  clearSpeakers();
+  send("scan");
+  say("Looking for speakers... the jukebox restarts, wait about 20 seconds.", true);
+};
 $("speakerBtn").onclick = () => {
   const name = $("speakerBox").value.trim();
   if (name) chooseSpeaker(name);
 };
-
-// ---------------- search ----------------
-$("searchForm").onsubmit = e => {
-  e.preventDefault();
-  const q = $("searchBox").value.trim();
-  if (!q) return;
-  $("results").innerHTML = "";
-  say("Searching…");
-  send("find:" + q);
-  $("searchBox").blur();
-};
-
 function chooseSpeaker(name) {
   send("speaker:" + name);
-  say("Using " + name + ". The jukebox restarts and connects — reconnecting…");
+  say("Using " + name + ". The jukebox restarts and connects to it...", true);
 }
-
-$("scanBtn").onclick = () => {
-  $("speakers").innerHTML = "";
-  send("scan");
-  say("Looking for speakers… the jukebox restarts, wait about 20 seconds.");
+$("otaBtn").onclick = () => {
+  updating = true;
+  send("ota");
+  say("Update mode: upload from VS Code now (env:esp32s_ota). Reconnect when it's done.", true);
 };
 
+function clearSpeakers() { $("speakers").innerHTML = ""; $("spkEmpty").classList.remove("hidden"); }
+
 function addSpeaker(name, rssi) {
+  $("spkEmpty").classList.add("hidden");
   let li = [...$("speakers").children].find(x => x.dataset.name === name);
   if (!li) {
     li = document.createElement("li");
     li.dataset.name = name;
-    li.innerHTML = "<span></span><small></small>";
+    li.innerHTML = '<span class="n"></span><span class="t"></span><span class="d"></span>';
     li.onclick = () => chooseSpeaker(name);
     $("speakers").appendChild(li);
   }
-  const bars = rssi > -60 ? "▮▮▮" : rssi > -75 ? "▮▮▯" : "▮▯▯";
-  li.firstChild.textContent = "🔊 " + name;
-  li.lastChild.textContent = "Signal " + bars + (status.speaker ? "" : "  — tap to connect");
+  li.children[0].textContent = "♫";
+  li.children[1].textContent = name;
+  li.children[2].textContent = rssi > -60 ? "▂▄▆" : rssi > -75 ? "▂▄ " : "▂  ";
 }
 
+// ---------------- messages from the jukebox (results channel) ----------------
 function addResult(line) {
-  if (line.startsWith("spk\t")) {
-    const [, name, rssi] = line.split("\t");
-    addSpeaker(name, +rssi);
-    return;
-  }
+  const f = line.split("\t");
+  if (f[0] === "spk") { addSpeaker(f[1], +f[2]); return; }
+  if (f[0] === "tgt") { $("spkName").textContent = "Speaker: " + f[1]; return; }
+  if (line === "begin") { $("results").innerHTML = ""; return; }   // a new search started
   if (line === "end") {
+    searching = false;
     const n = $("results").children.length;
-    say(n ? n + (n === 1 ? " song" : " songs") + " found" : "Nothing found.");
+    $("plInfo").textContent = n ? `${n} song${n === 1 ? "" : "s"} found` : "nothing found";
+    $("plEmpty").classList.toggle("hidden", n > 0);
+    if (!n) $("plEmpty").textContent = "Nothing found. Try fewer letters, or part of a word.";
     return;
   }
-  const [idx, artist, title] = line.split("\t");
-  const li = document.createElement("li");
-  li.innerHTML = "<span></span><small></small>";
-  li.firstChild.textContent = title;
-  li.lastChild.textContent = artist;
-  li.onclick = () => send("idx:" + idx);
-  $("results").appendChild(li);
+  if (/^\d+$/.test(f[0])) addSong(f[0], f[1], f[2] || "", f[3]);
 }
 </script>
 </body>
