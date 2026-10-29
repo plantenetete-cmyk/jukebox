@@ -115,14 +115,6 @@
       <button id="speakerBtn">Use</button>
     </div>
   </div>
-
-  <div class="card">
-    <h2>Software update</h2>
-    <button id="otaBtn" style="width:100%">Update mode (Wi-Fi)</button>
-    <p class="hint">Music stops and the jukebox restarts with Wi-Fi on. Then, in VS Code, choose
-      <b>env:esp32s_ota</b> and click Upload within 10 minutes. The jukebox restarts by itself
-      when the upload is done (or after 10 minutes), then reconnect here.</p>
-  </div>
 </div>
 
 <p id="msg"></p>
@@ -189,15 +181,8 @@ async function openGatt() {
   say("");
 }
 
-let updating = false;     // true after "Update mode": the jukebox is on Wi-Fi, don't chase it
-
 async function onDisconnected() {
   setConnected(false);
-  if (updating) {
-    updating = false;
-    say("Update mode: in VS Code choose env:esp32s_ota and click Upload. When it's done, tap Connect.");
-    return;
-  }
   say("Connection lost, reconnecting…");
   for (let i = 0; i < 5; i++) {
     try { await openGatt(); return; } catch (e) { await new Promise(r => setTimeout(r, 2000)); }
@@ -276,12 +261,6 @@ $("scanBtn").onclick = () => {
   $("speakers").innerHTML = "";
   send("scan");
   say("Looking for speakers… the jukebox restarts, wait about 20 seconds.");
-};
-
-$("otaBtn").onclick = () => {
-  updating = true;
-  send("ota");
-  say("Update mode: upload from VS Code now (env:esp32s_ota). Reconnect when it's done.");
 };
 
 function addSpeaker(name, rssi) {
