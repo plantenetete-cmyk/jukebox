@@ -88,6 +88,9 @@
     -webkit-appearance: none; width: 14px; height: 10px; margin-top: -2px;
     background: linear-gradient(#e0e0ee, #8a8aa0); border: 1px solid #000;
   }
+  input.seekbar { height: 34px; }
+  input.seekbar::-webkit-slider-runnable-track { height: 10px; background: #111; border-color: var(--frame-lo) var(--frame-hi) var(--frame-hi) var(--frame-lo); }
+  input.seekbar::-webkit-slider-thumb { width: 30px; height: 26px; margin-top: -9px; }
   .seek { flex: 1; height: 10px; background: #111; border: 1px solid; border-color: var(--frame-lo) var(--frame-hi) var(--frame-hi) var(--frame-lo); position: relative; }
   .seek i { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: linear-gradient(#5a5a8a, #2a2a50); }
   .seek i::after { content: ""; position: absolute; right: -7px; top: -1px; width: 14px; height: 10px; background: linear-gradient(#e0e0ee, #8a8aa0); border: 1px solid #000; }
@@ -178,7 +181,7 @@
     </div>
 
     <div id="controls" class="hidden">
-      <div class="bars"><label>TIME</label><div class="seek"><i id="seekFill"></i></div></div>
+      <div class="bars"><label>TIME</label><input id="seek" class="seekbar" type="range" min="0" max="100" value="0" aria-label="Position in the song"></div>
       <div class="bars"><label>VOL</label><input id="vol" type="range" min="0" max="100" value="60" aria-label="Volume"><span id="volText" style="width:30px;text-align:right;font-size:10px">60%</span></div>
       <div class="transport">
         <button id="prevBtn" aria-label="Previous">&#9198;</button>
@@ -226,7 +229,7 @@
     </div>
     <div class="row">
       <button id="reconnectBtn">RECONNECT</button>
-      <button id="scanBtn">FIND SPEAKERS</button>
+      <button id="scanBtn">FIND NEW SPEAKERS</button>
     </div>
     <div class="plist" style="height:auto;min-height:0;max-height:180px;margin-top:6px">
       <ol id="speakers"></ol>
@@ -236,7 +239,7 @@
       <input class="field" id="speakerBox" type="text" placeholder="or type the speaker name" autocomplete="off" autocorrect="off" autocapitalize="off">
       <button id="speakerBtn" style="flex:none">USE</button>
     </div>
-    <p class="hint">The jukebox reconnects by itself when the speaker comes back (every 15 s for 5 minutes, then every minute). Find speakers restarts the jukebox (about 20 s) and lists what it sees: tap one to use it.</p>
+    <p class="hint">The jukebox reconnects by itself when the speaker comes back (every 15 s for 5 minutes, then every minute). Find speakers is only for adding a NEW speaker: put that speaker in pairing mode first. The music pauses about 40 s, then comes back by itself. Tap a speaker in the list to switch to it.</p>
   </div>
 </div>
 
@@ -325,7 +328,6 @@ async function openGatt() {
   await rs.startNotifications();
   timeKnown = false;
   showStatus(dec.decode(await st.readValue()));
-  clearSpeakers();
   send("speakers");                       // ask for the wanted speaker and the speakers seen
   setConnected(true);
   say("");
@@ -423,7 +425,7 @@ function drawTime() {
   t.textContent = !connected ? "00:00" : timeKnown ? mmss(elapsed) : mmss(status.secs || 0);
   t.classList.toggle("blink", connected && status.state === "pause");
   const pct = timeKnown && status.secs ? Math.min(100, elapsed * 100 / status.secs) : 0;
-  $("seekFill").style.width = pct + "%";
+  if (!seekDragging) $("seek").value = pct;
 }
 
 function showSpeaker(code) {
@@ -471,6 +473,20 @@ $("stopBtn").onclick = () => send("stop");
 $("nextBtn").onclick = () => send("next");
 $("prevBtn").onclick = () => send("prev");
 $("shuffleBtn").onclick = () => send("shuffle:" + (status.shuffle ? 0 : 1));
+
+// TIME bar: drag (or tap) to jump in the song; sent when the finger lets go
+let seekDragging = false;
+$("seek").oninput = e => {
+  seekDragging = true;
+  if (status.secs) $("time").textContent = mmss(status.secs * e.target.value / 100);
+};
+$("seek").onchange = e => {
+  const pct = Math.min(99, +e.target.value);
+  send("seek:" + pct);
+  if (status.secs) { elapsed = Math.round(status.secs * pct / 100); timeKnown = true; }
+  seekDragging = false;
+  drawTime();
+};
 
 let volDragging = false, volTimer;
 $("vol").oninput = e => {
@@ -543,9 +559,10 @@ function addSong(idx, artist, title, secs) {
 // ---------------- speaker ----------------
 $("reconnectBtn").onclick = () => { send("reconnect"); say("Trying the speaker now..."); };
 $("scanBtn").onclick = () => {
+  if (!confirm("Find new speakers?\n\nThe music pauses for about 40 seconds while the jukebox restarts and looks for speakers in pairing mode. Then it goes back to your speaker and the music continues by itself.")) return;
   clearSpeakers();
   send("scan");
-  say("Looking for speakers... the jukebox restarts, wait about 20 seconds.", true);
+  say("Looking for speakers for 30 s... the music comes back by itself.", true);
 };
 $("speakerBtn").onclick = () => {
   const name = $("speakerBox").value.trim();
