@@ -400,7 +400,7 @@ function send(text) {
 }
 
 // ---------------- status ----------------
-// state|index|count|volume|shuffle|speaker|seconds|title|artist|album
+// state|index|count|volume|shuffle|speaker|seconds|title|artist|album|position
 // speaker: 0 = not connected, 1 = connected, 2 = connecting, 3 = scan mode
 let elapsed = 0, timeKnown = false, lastKey = "";
 function showStatus(s) {
@@ -413,6 +413,11 @@ function showStatus(s) {
   if (lastKey && key !== lastKey) { elapsed = 0; timeKnown = true; }   // new song: the clock is exact from here
   if (prev.state === "stop" && status.state === "play") { elapsed = 0; timeKnown = true; }
   lastKey = key;
+  // newer jukebox programs also send the real position in the song (0..1000)
+  if (p.length > 10 && p[10].trim() !== "" && !seekDragging) {
+    status.pm = +p[10];
+    if (status.secs) { elapsed = Math.round(status.secs * status.pm / 1000); timeKnown = true; }
+  } else status.pm = prev.pm;
 
   const name = (status.artist ? status.artist + " - " : "") + (status.title || "");
   setMarquee(name ? `${status.index + 1}. ${name}${status.secs ? " (" + mss(status.secs) + ")" : ""}` : "*** JUKEBOX ***");
@@ -456,7 +461,7 @@ function drawTime() {
   const t = $("time");
   t.textContent = !connected ? "00:00" : timeKnown ? mmss(elapsed) : mmss(status.secs || 0);
   t.classList.toggle("blink", connected && status.state === "pause");
-  const pct = timeKnown && status.secs ? Math.min(100, elapsed * 100 / status.secs) : 0;
+  const pct = timeKnown && status.secs ? Math.min(100, elapsed * 100 / status.secs) : (status.pm || 0) / 10;
   if (!seekDragging) $("seek").value = pct;
 }
 
@@ -517,6 +522,7 @@ function seekDone() {
   seekDragging = false;
   const pct = Math.min(99, +$("seek").value);
   send("seek:" + pct);
+  status.pm = pct * 10;                      // stay where the finger let go
   if (status.secs) { elapsed = Math.round(status.secs * pct / 100); timeKnown = true; say("Jump to " + mmss(elapsed)); }
   drawTime();
 }
