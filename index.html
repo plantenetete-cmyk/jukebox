@@ -1,341 +1,302 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#151520">
+<meta name="theme-color" content="#000000">
 <title>Jukebox</title>
 <style>
-  /* Classic 1990s MP3 player look: grey beveled windows, black LCD, green text */
-  :root {
-    --desk: #151520;
-    --frame: #3a3a4e; --frame-hi: #6b6b85; --frame-lo: #18181f;
-    --face: #2b2b3a; --title1: #c8b46a; --title2: #6e6232;
-    --lcd: #000; --green: #00e000; --green-dim: #0a5a0a; --green-mid: #00a000;
-    --sel: #0000c6; --white: #fff; --amber: #ffb000; --red: #ff3030; --blue: #48a0ff;
-    --btn: #8a8aa0; --btn-hi: #d4d4e4; --btn-lo: #3c3c4c;
-  }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
-  html { background: var(--desk); }
-  body {
-    margin: 0 auto; max-width: 440px; color: var(--green); background: var(--desk);
-    font: 12px/1.25 Tahoma, Verdana, "Segoe UI", Arial, sans-serif;
-    padding: calc(env(safe-area-inset-top) + 8px) 8px calc(env(safe-area-inset-bottom) + 16px);
-  }
-  input { -webkit-user-select: text; user-select: text; }
+:root {
+  --accent: #fa2d48;
+  --bg: #ffffff; --bg2: #f2f2f7; --card: #ffffff;
+  --text: #000000; --text2: #8a8a8e; --line: #d1d1d6;
+  --bar: rgba(249,249,249,.94); --shadow: 0 10px 30px rgba(0,0,0,.18);
+  --row: 64px;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #000000; --bg2: #1c1c1e; --card: #1c1c1e; --text: #ffffff; --text2: #8d8d93;
+          --line: #38383a; --bar: rgba(22,22,24,.94); --shadow: 0 10px 30px rgba(0,0,0,.6); }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+  font: 17px/1.3 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  -webkit-user-select: none; user-select: none; overflow: hidden; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.hidden { display: none !important; }
 
-  /* ---------- windows ---------- */
-  .win {
-    background: var(--face); margin-bottom: 8px;
-    border: 2px solid; border-color: var(--frame-hi) var(--frame-lo) var(--frame-lo) var(--frame-hi);
-    box-shadow: 0 0 0 1px #000;
-  }
-  .tbar {
-    display: flex; align-items: center; gap: 6px; height: 16px; padding: 0 4px;
-    background: linear-gradient(#2e2e40, #20202c); cursor: pointer;
-  }
-  .tbar .stripes {
-    flex: 1; height: 6px;
-    background: repeating-linear-gradient(to bottom, var(--title1) 0 1px, var(--title2) 1px 2px, transparent 2px 3px);
-  }
-  .tbar .name {
-    color: #e8e0b8; font: bold 9px/1 Tahoma, Verdana, sans-serif; letter-spacing: 2px; white-space: nowrap;
-  }
-  .tbar .ctl { width: 9px; height: 9px; border: 1px solid #9a9070; background: #33332a; flex: none; }
-  .wbody { padding: 6px; }
-  .win.shut .wbody { display: none; }
+/* ---------- pages ---------- */
+#app { position: fixed; inset: 0; }
+.page { position: absolute; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: calc(env(safe-area-inset-top) + 8px) 0 calc(env(safe-area-inset-bottom) + 160px); background: var(--bg); }
+.navbar { display: flex; align-items: center; height: 48px; padding: 0 8px; }
+.back { color: var(--accent); display: flex; align-items: center; gap: 2px; font-size: 18px; min-height: 48px; padding: 0 8px; }
+.back svg { width: 14px; height: 24px; }
+h1.big { font-size: 34px; font-weight: 700; margin: 4px 20px 12px; letter-spacing: .3px; }
+h2 { font-size: 22px; font-weight: 700; margin: 24px 20px 10px; }
+.sub { color: var(--text2); font-size: 15px; margin: 0 20px; }
 
-  /* ---------- LCD ---------- */
-  .lcd {
-    background: var(--lcd); border: 2px solid; border-color: var(--frame-lo) var(--frame-hi) var(--frame-hi) var(--frame-lo);
-    padding: 4px 6px; font-family: "Courier New", Courier, monospace; color: var(--green);
-  }
-  .lcdtop { display: flex; gap: 8px; align-items: stretch; }
-  .lcdleft { width: 118px; flex: none; display: flex; flex-direction: column; gap: 3px; }
-  .timerow { display: flex; align-items: center; gap: 6px; }
-  .stateicon { width: 10px; font-size: 10px; color: var(--green); text-align: center; }
-  .time {
-    font: bold 30px/1 "Courier New", Courier, monospace; letter-spacing: 1px; color: var(--green);
-    text-shadow: 0 0 4px rgba(0,224,0,.55);
-  }
-  .time.blink { animation: blink 1s steps(1) infinite; }
-  @keyframes blink { 50% { opacity: 0; } }
-  canvas#vis { width: 100%; height: 26px; display: block; }
-  .lcdright { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 4px; }
-  .marquee { overflow: hidden; white-space: nowrap; border: 1px solid var(--green-dim); padding: 2px 3px; height: 18px; }
-  .marquee span { display: inline-block; font-size: 12px; will-change: transform; }
-  .marquee.scroll span { animation: scrollx var(--dur, 12s) linear infinite; padding-left: 100%; }
-  @keyframes scrollx { from { transform: translateX(0); } to { transform: translateX(-100%); } }
-  .info { display: flex; gap: 6px; flex-wrap: wrap; font-size: 9px; align-items: center; }
-  .info b { font-weight: normal; color: var(--green); border: 1px solid var(--green-dim); padding: 0 3px; }
-  .lamp { color: var(--green-dim); font-size: 9px; letter-spacing: 1px; }
-  .lamp.on { color: var(--green); text-shadow: 0 0 3px rgba(0,224,0,.7); }
-  .lamp.warn { color: var(--amber); animation: blink 1s steps(1) infinite; }
-  .lamp.bad { color: var(--red); }
-  .lamp.scan { color: var(--blue); }
-  .msg { font-size: 10px; color: var(--green-mid); min-height: 13px; margin-top: 3px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* ---------- lists ---------- */
+.list { list-style: none; margin: 0; padding: 0 0 0 20px; }
+.row { display: flex; align-items: center; gap: 14px; min-height: var(--row); padding-right: 20px;
+  border-bottom: .5px solid var(--line); content-visibility: auto; contain-intrinsic-size: auto var(--row); }
+.row:active { background: var(--bg2); }
+.row .txt { flex: 1; min-width: 0; }
+.row .t1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 18px; }
+.row .t2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text2); font-size: 15px; }
+.row .num { width: 26px; text-align: center; color: var(--text2); font-size: 16px; flex: none; }
+.row .dur { color: var(--text2); font-size: 15px; flex: none; }
+.row .chev { color: var(--text2); flex: none; width: 10px; }
+.row.menu .t1 { color: var(--accent); font-size: 21px; }
+.row.menu .ico { width: 30px; color: var(--accent); flex: none; display: flex; justify-content: center; }
+.row.playing .t1 { color: var(--accent); font-weight: 600; }
+.list.az .row { padding-right: 30px; }
+.letter { position: sticky; top: 0; z-index: 2; background: var(--bg2); color: var(--text2); font-weight: 600;
+  font-size: 15px; padding: 4px 20px; margin-left: -20px; }
 
-  /* ---------- sliders ---------- */
-  .bars { display: flex; gap: 6px; align-items: center; margin: 6px 0 4px; }
-  .bars label { font-size: 9px; color: #c8c8d8; letter-spacing: 1px; width: 26px; }
-  input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; height: 10px; margin: 0; background: transparent; }
-  input[type=range]::-webkit-slider-runnable-track {
-    height: 8px; border: 1px solid #000;
-    background: linear-gradient(to right, #1c6b10, #8fb000 60%, #d03000);
-  }
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 14px; height: 10px; margin-top: -2px;
-    background: linear-gradient(#e0e0ee, #8a8aa0); border: 1px solid #000;
-  }
-  input.seekbar { height: 34px; }
-  input.seekbar::-webkit-slider-runnable-track { height: 10px; background: #111; border-color: var(--frame-lo) var(--frame-hi) var(--frame-hi) var(--frame-lo); }
-  input.seekbar::-webkit-slider-thumb { width: 30px; height: 26px; margin-top: -9px; }
-  .seek { flex: 1; height: 10px; background: #111; border: 1px solid; border-color: var(--frame-lo) var(--frame-hi) var(--frame-hi) var(--frame-lo); position: relative; }
-  .seek i { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: linear-gradient(#5a5a8a, #2a2a50); }
-  .seek i::after { content: ""; position: absolute; right: -7px; top: -1px; width: 14px; height: 10px; background: linear-gradient(#e0e0ee, #8a8aa0); border: 1px solid #000; }
+/* A-Z index on the right edge (like the iPhone) */
+.azbar { position: fixed; right: 2px; top: calc(env(safe-area-inset-top) + 120px); bottom: calc(env(safe-area-inset-bottom) + 170px);
+  width: 26px; display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+  color: var(--accent); font-size: 11px; font-weight: 600; z-index: 5; touch-action: none; }
 
-  /* ---------- buttons ---------- */
-  .transport { display: flex; gap: 3px; align-items: center; margin-top: 6px; }
-  button {
-    font: bold 11px/1 Tahoma, Verdana, sans-serif; color: #111; cursor: pointer;
-    background: linear-gradient(#c6c6d6, #8a8aa0); padding: 0 8px; height: 28px; border-radius: 0;
-    border: 2px solid; border-color: var(--btn-hi) var(--btn-lo) var(--btn-lo) var(--btn-hi);
-  }
-  button:active, button.down { border-color: var(--btn-lo) var(--btn-hi) var(--btn-hi) var(--btn-lo); background: linear-gradient(#8a8aa0, #b6b6c6); }
-  .transport button { width: 40px; padding: 0; font-size: 14px; }
-  .transport .grow { flex: 1; }
-  .transport .tog { width: auto; padding: 0 6px; font-size: 9px; letter-spacing: 1px; }
-  .tog.on { color: var(--green); background: linear-gradient(#202028, #34343e); border-color: var(--btn-lo) var(--btn-hi) var(--btn-hi) var(--btn-lo); text-shadow: 0 0 3px rgba(0,224,0,.7); }
-  button.wide { width: 100%; height: 34px; font-size: 12px; letter-spacing: 1px; }
+/* ---------- covers (made from the album name: no images on the card) ---------- */
+.cover { position: relative; flex: none; border-radius: 6px; overflow: hidden; display: flex; align-items: center;
+  justify-content: center; color: rgba(255,255,255,.92); font-weight: 700; letter-spacing: .5px; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+.cover.s { width: 48px; height: 48px; font-size: 17px; border-radius: 5px; }
+.cover.round { border-radius: 50%; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 16px; padding: 0 20px; }
+.tile { min-width: 0; }
+.tile .cover { width: 100%; aspect-ratio: 1; font-size: 40px; border-radius: 8px; }
+.tile .t1 { margin-top: 6px; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .t2 { color: var(--text2); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  /* ---------- playlist ---------- */
-  .search { display: flex; gap: 4px; margin-bottom: 4px; }
-  .search input, .field {
-    flex: 1; min-width: 0; height: 28px; padding: 0 6px; border-radius: 0; outline: none;
-    background: #000; color: var(--green); font: 14px "Courier New", Courier, monospace;
-    border: 2px solid; border-color: var(--frame-lo) var(--frame-hi) var(--frame-hi) var(--frame-lo);
-  }
-  .search input::placeholder, .field::placeholder { color: var(--green-dim); }
-  .plist {
-    background: #000; height: 46vh; min-height: 220px; overflow-y: auto; -webkit-overflow-scrolling: touch;
-    border: 2px solid; border-color: var(--frame-lo) var(--frame-hi) var(--frame-hi) var(--frame-lo);
-    font: 12px/1 Arial, Helvetica, sans-serif;
-  }
-  .plist ol { list-style: none; margin: 0; padding: 0; }
-  .plist li { display: flex; gap: 6px; padding: 6px 4px; color: var(--green); cursor: pointer; }
-  .plist li .n { color: var(--green-mid); flex: none; min-width: 26px; text-align: right; }
-  .plist li .t { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .plist li .d { flex: none; color: var(--green-mid); }
-  .plist li.cur, .plist li.cur .n, .plist li.cur .d { color: var(--white); }
-  .plist li:active, .plist li.sel { background: var(--sel); }
-  .plist .empty { color: var(--green-mid); padding: 10px 6px; font-size: 11px; line-height: 1.5; }
-  .plbar { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; gap: 4px; }
-  .plbar .lcd { padding: 2px 6px; font-size: 10px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* album / artist header */
+.head { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 20px; }
+.head .cover { width: min(64vw, 280px); height: min(64vw, 280px); font-size: 70px; border-radius: 10px; box-shadow: var(--shadow); }
+.head .cover.round { width: 170px; height: 170px; font-size: 54px; }
+.head .ttl { font-size: 24px; font-weight: 700; margin-top: 18px; }
+.head .art { font-size: 21px; color: var(--accent); margin-top: 2px; }
+.btns { display: flex; gap: 14px; padding: 20px; }
+.pill { flex: 1; height: 54px; border-radius: 12px; background: var(--bg2); color: var(--accent); font-weight: 600; font-size: 18px;
+  display: flex; align-items: center; justify-content: center; gap: 8px; }
+.pill:active { opacity: .6; }
+.pill svg { width: 20px; height: 20px; }
+.foot { color: var(--text2); font-size: 15px; padding: 14px 20px; }
 
-  /* ---------- speaker ---------- */
-  .spkhead { display: flex; align-items: center; gap: 8px; }
-  .led { width: 12px; height: 12px; border-radius: 50%; flex: none; background: #400; border: 1px solid #000; box-shadow: inset 0 -2px 2px rgba(0,0,0,.5); }
-  .led.on { background: #0f0; box-shadow: 0 0 6px #0f0; }
-  .led.warn { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation: blink 1s steps(1) infinite; }
-  .led.bad { background: var(--red); box-shadow: 0 0 5px var(--red); }
-  .led.scan { background: var(--blue); box-shadow: 0 0 6px var(--blue); animation: blink 1s steps(1) infinite; }
-  .spktext { flex: 1; min-width: 0; }
-  .spktext .big { font-size: 13px; font-weight: bold; }
-  .spktext .small { font-size: 10px; color: var(--green-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .row { display: flex; gap: 4px; margin-top: 6px; }
-  .row button { flex: 1; }
-  .hint { color: #a8a8bc; font-size: 10px; line-height: 1.45; margin: 6px 0 0; }
-  .hint b { color: #e0e0ee; }
-  .hidden { display: none !important; }
+/* ---------- search ---------- */
+.searchbox { margin: 0 20px 10px; display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 12px;
+  background: var(--bg2); border-radius: 12px; color: var(--text2); }
+.searchbox input { flex: 1; border: 0; background: none; color: var(--text); font: inherit; font-size: 18px; outline: none; min-width: 0; }
+.searchbox button { color: var(--text2); font-size: 20px; width: 32px; height: 32px; }
+.empty { color: var(--text2); text-align: center; padding: 40px 30px; font-size: 17px; }
 
-  /* ---------- big fingers: larger touch targets ---------- */
-  .tbar { height: 30px; }
-  .tbar .name { font-size: 11px; }
-  .tbar .ctl { width: 12px; height: 12px; }
-  .bars { margin: 10px 0 6px; }
-  .bars label { font-size: 11px; width: 36px; }
-  input[type=range] { height: 44px; }
-  input[type=range]::-webkit-slider-runnable-track { height: 12px; }
-  input[type=range]::-webkit-slider-thumb { width: 36px; height: 36px; margin-top: -13px; border-radius: 4px; }
-  input.seekbar { height: 44px; }
-  input.seekbar::-webkit-slider-thumb { width: 36px; height: 36px; margin-top: -13px; }
-  #volText { font-size: 12px !important; width: 40px !important; }
-  button { height: 48px; font-size: 13px; }
-  .transport { gap: 4px; flex-wrap: wrap; }
-  .transport button { flex: 1; width: auto; height: 60px; font-size: 22px; }
-  .transport .grow { display: none; }
-  .transport .tog { flex: 1 1 100%; height: 48px; font-size: 13px; }
-  button.wide { height: 56px; font-size: 15px; }
-  .search input, .field { height: 48px; font-size: 17px; }
-  .search button { width: 64px; }
-  .plist { font-size: 16px; }
-  .plist li { padding: 14px 6px; gap: 8px; }
-  .plist li .n { min-width: 32px; }
-  .plbar .lcd { font-size: 12px; padding: 6px; }
-  .plbar button { width: 72px; }
-  .row { gap: 6px; margin-top: 8px; }
-  .led { width: 16px; height: 16px; }
-  .spktext .big { font-size: 16px; }
-  .spktext .small { font-size: 12px; }
-  .hint { font-size: 12px; }
-  .msg { font-size: 12px; }
+/* ---------- settings ---------- */
+.group { margin: 0 16px 24px; background: var(--card); border-radius: 12px; overflow: hidden; }
+@media (prefers-color-scheme: light) { #pageSettings { background: var(--bg2); } }
+.group .row { padding: 0 16px; border-bottom: .5px solid var(--line); }
+.group .row:last-child { border-bottom: 0; }
+.ghead { color: var(--text2); font-size: 14px; text-transform: uppercase; margin: 10px 32px 6px; }
+.gfoot { color: var(--text2); font-size: 14px; margin: -16px 32px 24px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; background: #8e8e93; flex: none; }
+.dot.ok { background: #34c759; } .dot.warn { background: #ff9f0a; } .dot.bad { background: #ff3b30; } .dot.scan { background: #0a84ff; }
+.act { color: var(--accent); font-size: 18px; }
+.field { display: flex; gap: 10px; padding: 10px 16px; }
+.field input { flex: 1; height: 46px; border-radius: 10px; border: 0; background: var(--bg2); color: var(--text); font: inherit; padding: 0 12px; min-width: 0; }
+.field button { color: var(--accent); font-weight: 600; padding: 0 10px; }
+.bars { font-size: 13px; color: var(--text2); letter-spacing: -1px; }
+
+/* ---------- mini player + tab bar ---------- */
+#bottom { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; }
+#mini { margin: 0 8px 6px; height: 68px; border-radius: 14px; background: var(--bar); box-shadow: 0 4px 20px rgba(0,0,0,.18);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); display: flex; align-items: center; gap: 12px; padding: 0 8px 0 10px; }
+#mini .txt { flex: 1; min-width: 0; }
+#mini .t1 { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#mini .t2 { font-size: 14px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ib { width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; flex: none; border-radius: 50%; }
+.ib:active { background: var(--bg2); }
+.ib svg { width: 30px; height: 30px; }
+#tabs { display: flex; background: var(--bar); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  border-top: .5px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+#tabs button { flex: 1; height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; font-size: 12px; color: var(--text2); }
+#tabs button svg { width: 28px; height: 28px; }
+#tabs button.on { color: var(--accent); }
+
+/* ---------- now playing (full screen) ---------- */
+#np { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center;
+  padding: calc(env(safe-area-inset-top) + 8px) 28px calc(env(safe-area-inset-bottom) + 18px);
+  color: #fff; background: #333; transform: translateY(100%); transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+#np.open { transform: none; }
+#np .grab { width: 100%; height: 34px; flex: none; display: flex; justify-content: center; align-items: center; }
+#np .grab span { width: 44px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.45); }
+#npCover { width: min(76vw, 36vh, 360px); height: min(76vw, 36vh, 360px); font-size: 80px; border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0,0,0,.45); margin-top: 1vh; flex: none; transition: transform .3s; }
+#np.paused #npCover { transform: scale(.82); }
+.npinfo { align-self: stretch; margin-top: 3vh; }
+#npTitle { font-size: 24px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#npArtist { font-size: 21px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slider { -webkit-appearance: none; appearance: none; width: 100%; height: 44px; background: none; margin: 0; }
+.slider::-webkit-slider-runnable-track { height: 7px; border-radius: 4px;
+  background: linear-gradient(to right, rgba(255,255,255,.9) var(--p, 0%), rgba(255,255,255,.28) var(--p, 0%)); }
+.slider::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; border-radius: 50%; background: #fff;
+  margin-top: -10.5px; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.slider::-moz-range-track { height: 7px; border-radius: 4px; background: rgba(255,255,255,.28); }
+.slider::-moz-range-progress { height: 7px; border-radius: 4px; background: rgba(255,255,255,.9); }
+.slider::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: #fff; border: 0; }
+.times { display: flex; justify-content: space-between; font-size: 13px; opacity: .65; margin-top: -6px; font-variant-numeric: tabular-nums; }
+.npctl { display: flex; justify-content: space-evenly; align-items: center; align-self: stretch; margin: 1vh 0; }
+.npctl button { width: 88px; height: 88px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+.npctl button:active { background: rgba(255,255,255,.15); }
+.npctl svg { width: 50px; height: 50px; }
+.npctl .main svg { width: 70px; height: 70px; }
+.vol { display: flex; align-items: center; gap: 10px; align-self: stretch; }
+.vol svg { width: 22px; height: 22px; opacity: .65; flex: none; }
+.npbot { display: flex; justify-content: space-around; align-self: stretch; margin-top: auto; padding-top: 6px; }
+.npbot button { width: 64px; height: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 12px; opacity: .65; font-size: 11px; gap: 2px; }
+.npbot button.on { opacity: 1; background: rgba(255,255,255,.2); }
+.npbot svg { width: 28px; height: 28px; }
+#npSpk { font-size: 14px; opacity: .75; text-align: center; margin-top: 6px; min-height: 18px; }
+
+/* ---------- connect screen, sheets, toast ---------- */
+#connect { position: fixed; inset: 0; z-index: 60; background: var(--bg); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 30px; text-align: center; gap: 16px; }
+#connect .logo { width: 120px; height: 120px; border-radius: 28px; background: linear-gradient(135deg, #fa2d48, #a833e0);
+  display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); }
+#connect .logo svg { width: 64px; height: 64px; color: #fff; }
+.bigbtn { min-width: 260px; height: 60px; border-radius: 16px; background: var(--accent); color: #fff; font-size: 20px; font-weight: 600; }
+.bigbtn:active { opacity: .7; }
+.link { color: var(--accent); font-size: 17px; padding: 12px; }
+#sheet { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; }
+#sheet .box { width: 100%; margin: 8px; margin-bottom: calc(env(safe-area-inset-bottom) + 8px); }
+#sheet .card { background: var(--card); border-radius: 14px; overflow: hidden; text-align: center; margin-bottom: 8px; }
+#sheet .msg { padding: 18px 20px; color: var(--text2); font-size: 15px; }
+#sheet .msg b { display: block; color: var(--text); font-size: 17px; margin-bottom: 4px; }
+#sheet button { display: block; width: 100%; height: 60px; font-size: 20px; color: var(--accent); border-top: .5px solid var(--line); }
+#sheet .cancel { border: 0; font-weight: 600; }
+#toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 10px); transform: translateX(-50%); z-index: 90;
+  background: var(--bar); box-shadow: var(--shadow); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  border-radius: 22px; padding: 12px 20px; font-size: 15px; max-width: 90vw; text-align: center; }
+.prog { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin: 8px 20px; }
+.prog div { height: 100%; background: var(--accent); width: 0; transition: width .3s; }
 </style>
 </head>
 <body>
+<div id="app">
+  <div id="pageLibrary" class="page"></div>
+  <div id="pageSearch" class="page hidden"></div>
+  <div id="pageSettings" class="page hidden"></div>
+</div>
+<div id="azbar" class="azbar hidden"></div>
 
-<!-- ================= MAIN WINDOW ================= -->
-<div class="win" id="mainWin">
-  <div class="tbar"><span class="ctl"></span><span class="stripes"></span><span class="name">JUKEBOX</span><span class="stripes"></span><span class="ctl"></span></div>
-  <div class="wbody">
-    <div class="lcd">
-      <div class="lcdtop">
-        <div class="lcdleft">
-          <div class="timerow"><span class="stateicon" id="stateIcon">&#9632;</span><span class="time" id="time">00:00</span></div>
-          <canvas id="vis" width="236" height="52"></canvas>
-        </div>
-        <div class="lcdright">
-          <div class="marquee" id="marquee"><span id="marqueeText">*** JUKEBOX *** NOT CONNECTED ***</span></div>
-          <div class="info">
-            <b id="trackNo">--/--</b>
-            <span class="lamp" id="lampPhone">PHONE</span>
-            <span class="lamp" id="lampSpk">SPEAKER</span>
-            <span class="lamp" id="lampShuf">SHUF</span>
-          </div>
-          <div class="msg" id="msg"></div>
-        </div>
-      </div>
-    </div>
+<div id="bottom">
+  <div id="mini" class="hidden">
+    <div id="miniCover" class="cover s"></div>
+    <div class="txt"><div class="t1" id="miniTitle"></div><div class="t2" id="miniArtist"></div></div>
+    <button class="ib" id="miniPlay" aria-label="Lecture/Pause"></button>
+    <button class="ib" id="miniNext" aria-label="Suivante"></button>
+  </div>
+  <nav id="tabs">
+    <button data-tab="Library" class="on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h2v16H4zM9 4h2v16H9zM14.2 4.6l1.9-.7 5.5 15.1-1.9.7z"/></svg>Bibliothèque</button>
+    <button data-tab="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>Recherche</button>
+    <button data-tab="Settings"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm4 3a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm0 5a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6z"/></svg>Enceinte</button>
+  </nav>
+</div>
 
-    <div id="connectBox">
-      <button class="wide" id="connectBtn" style="margin-top:6px">&#9655; CONNECT TO JUKEBOX</button>
-      <p class="hint" id="supportHint">Turn the jukebox on, then tap Connect.</p>
-    </div>
-
-    <div id="controls" class="hidden">
-      <div class="bars"><label>TIME</label><input id="seek" class="seekbar" type="range" min="0" max="100" value="0" aria-label="Position in the song"></div>
-      <div class="bars"><label>VOL</label><input id="vol" type="range" min="0" max="100" value="60" aria-label="Volume"><span id="volText" style="width:30px;text-align:right;font-size:10px">60%</span></div>
-      <div class="transport">
-        <button id="prevBtn" aria-label="Previous">&#9198;</button>
-        <button id="playBtn" aria-label="Play">&#9654;</button>
-        <button id="pauseBtn" aria-label="Pause">&#10074;&#10074;</button>
-        <button id="stopBtn" aria-label="Stop">&#9632;</button>
-        <button id="nextBtn" aria-label="Next">&#9197;</button>
-        <span class="grow"></span>
-        <button id="shuffleBtn" class="tog" aria-label="Shuffle">SHUFFLE</button>
-      </div>
-    </div>
+<div id="np">
+  <div class="grab" id="npClose"><span></span></div>
+  <div id="npCover" class="cover"></div>
+  <div class="npinfo">
+    <div id="npTitle"></div>
+    <div id="npArtist"></div>
+    <input type="range" class="slider" id="seek" min="0" max="1000" value="0">
+    <div class="times"><span id="tNow">0:00</span><span id="tLeft">-0:00</span></div>
+  </div>
+  <div class="npctl">
+    <button id="npPrev" aria-label="Précédente"></button>
+    <button id="npPlay" class="main" aria-label="Lecture/Pause"></button>
+    <button id="npNext" aria-label="Suivante"></button>
+  </div>
+  <div class="vol">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 9h4l5-4v14l-5-4H4z"/></svg>
+    <input type="range" class="slider" id="vol" min="0" max="100" value="50">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9h4l5-4v14l-5-4H3zM15 8.5a5 5 0 0 1 0 7l-1.2-1.2a3.3 3.3 0 0 0 0-4.6zM17.8 5.7a9 9 0 0 1 0 12.6l-1.2-1.2a7.3 7.3 0 0 0 0-10.2z"/></svg>
+  </div>
+  <div id="npSpk"></div>
+  <div class="npbot">
+    <button id="npShuffle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3.5c4 0 6 10 10 10H21M3 17h3.5c1.6 0 2.8-1.6 3.9-3.6M13.6 9.6C14.7 8 15.9 7 17 7h4M18 4l3 3-3 3M18 14l3 3-3 3"/></svg>Aléatoire</button>
+    <button id="npSpeaker"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm4 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0-5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg>Enceinte</button>
   </div>
 </div>
 
-<div id="player" class="hidden">
-<!-- ================= PLAYLIST / SEARCH ================= -->
-<div class="win" id="plWin">
-  <div class="tbar" data-toggle="plWin"><span class="ctl"></span><span class="stripes"></span><span class="name">JUKEBOX PLAYLIST</span><span class="stripes"></span><span class="ctl"></span></div>
-  <div class="wbody">
-    <form class="search" id="searchForm">
-      <input id="searchBox" type="search" placeholder="search artist, album, song..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-      <button type="button" id="clearBtn" aria-label="Clear search">CLR</button>
-    </form>
-    <div class="plist" id="plist">
-      <ol id="results"></ol>
-      <div class="empty" id="plEmpty">Type a few letters to search your music on the SD card. Spelling doesn't need to be exact: "metalica", "ac dc" and "celine" all work.</div>
-    </div>
-    <div class="plbar">
-      <div class="lcd" id="plInfo">0 songs</div>
-      <button id="curBtn" aria-label="Show current song">CUR</button>
-    </div>
-  </div>
+<div id="connect">
+  <div class="logo"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 17.5V6l11-2.5v11.6a3 3 0 1 1-2-2.8V7.2l-7 1.6v8.7a3 3 0 1 1-2-2.8z"/></svg></div>
+  <h1 style="margin:10px 0 0">Jukebox</h1>
+  <div class="sub" id="connectHint">Allume le jukebox, puis touche le bouton.</div>
+  <button class="bigbtn" id="connectBtn">Se connecter</button>
+  <button class="link" id="offlineBtn">Parcourir sans se connecter</button>
 </div>
 
-<!-- ================= SPEAKER ================= -->
-<div class="win" id="spkWin">
-  <div class="tbar" data-toggle="spkWin"><span class="ctl"></span><span class="stripes"></span><span class="name">SPEAKER</span><span class="stripes"></span><span class="ctl"></span></div>
-  <div class="wbody">
-    <div class="lcd spkhead">
-      <span class="led" id="spkLed"></span>
-      <div class="spktext">
-        <div class="big" id="spkState">Waiting for speaker</div>
-        <div class="small" id="spkName">Speaker: —</div>
-      </div>
-    </div>
-    <div class="row">
-      <button id="reconnectBtn">RECONNECT</button>
-      <button id="scanBtn">FIND NEW SPEAKERS</button>
-    </div>
-    <div class="plist" style="height:auto;min-height:0;max-height:180px;margin-top:6px">
-      <ol id="speakers"></ol>
-      <div class="empty" id="spkEmpty">No speakers listed yet. Put your speaker in pairing mode and tap Find speakers.</div>
-    </div>
-    <div class="row">
-      <input class="field" id="speakerBox" type="text" placeholder="or type the speaker name" autocomplete="off" autocorrect="off" autocapitalize="off">
-      <button id="speakerBtn" style="flex:none">USE</button>
-    </div>
-    <p class="hint">The jukebox reconnects by itself when the speaker comes back (every 15 s for 5 minutes, then every minute). Find speakers is only for adding a NEW speaker: put that speaker in pairing mode first. The music pauses about 40 s, then comes back by itself. Tap a speaker in the list to switch to it.</p>
-  </div>
-</div>
-
-<!-- ================= OPTIONS ================= -->
-<div class="win shut" id="optWin">
-  <div class="tbar" data-toggle="optWin"><span class="ctl"></span><span class="stripes"></span><span class="name">OPTIONS</span><span class="stripes"></span><span class="ctl"></span></div>
-  <div class="wbody">
-    <button class="wide" id="otaBtn">SOFTWARE UPDATE MODE (WI-FI)</button>
-    <p class="hint">Only works when <b>USE_OTA</b> is 1 in config.h. Music stops and the jukebox restarts with Wi-Fi on. Then, in VS Code, choose <b>env:esp32s_ota</b> and click Upload within 10 minutes. It restarts by itself when done; then tap Connect here.</p>
-  </div>
-</div>
-</div>
+<div id="sheet" class="hidden"><div class="box"><div class="card" id="sheetCard"></div><div class="card"><button class="cancel" id="sheetCancel">Annuler</button></div></div></div>
+<div id="toast" class="hidden"></div>
 
 <script>
+"use strict";
+// ====================================================================
+//  BLE link with the jukebox (same service as before, + catalog channel)
+// ====================================================================
 const SERVICE = "6e6a0001-8f2b-4b8e-9a6f-4a756b65626f";
 const CMD     = "6e6a0002-8f2b-4b8e-9a6f-4a756b65626f";
 const STATUS  = "6e6a0003-8f2b-4b8e-9a6f-4a756b65626f";
 const RESULT  = "6e6a0004-8f2b-4b8e-9a6f-4a756b65626f";
+const CATALOG = "6e6a0005-8f2b-4b8e-9a6f-4a756b65626f";
 
 const $ = id => document.getElementById(id);
-let device, cmdChar, status = {}, connected = false;
 const enc = new TextEncoder(), dec = new TextDecoder();
+let device, cmdChar, connected = false, status = { state: "stop", index: -1, secs: 0, speaker: -1 };
+
+const ICON = {
+  play:  '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15a1 1 0 0 0 1.5.9l12-7.5a1 1 0 0 0 0-1.8l-12-7.5A1 1 0 0 0 7 4.5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5.5" y="4" width="4.5" height="16" rx="1.2"/><rect x="14" y="4" width="4.5" height="16" rx="1.2"/></svg>',
+  next:  '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.5 6.2v11.6a.8.8 0 0 0 1.2.7L12 13v4.8a.8.8 0 0 0 1.2.7l9-5.8a.8.8 0 0 0 0-1.4l-9-5.8A.8.8 0 0 0 12 6.2V11L3.7 5.5a.8.8 0 0 0-1.2.7z"/></svg>',
+  prev:  '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 6.2v11.6a.8.8 0 0 1-1.2.7L12 13v4.8a.8.8 0 0 1-1.2.7l-9-5.8a.8.8 0 0 1 0-1.4l9-5.8a.8.8 0 0 1 1.2.7V11l8.3-5.5a.8.8 0 0 1 1.2.7z"/></svg>',
+  shuf:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3.5c4 0 6 10 10 10H21M3 17h3.5c1.6 0 2.8-1.6 3.9-3.6M13.6 9.6C14.7 8 15.9 7 17 7h4M18 4l3 3-3 3M18 14l3 3-3 3"/></svg>',
+  chev:  '<svg viewBox="0 0 8 14" width="8" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l6 6-6 6"/></svg>',
+  back:  '<svg viewBox="0 0 12 20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2 2 10l8 8"/></svg>',
+  mic:   '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><circle cx="9" cy="8" r="4"/><path d="M2 20c0-3.5 3.1-6 7-6s7 2.5 7 6z"/></svg>',
+  album: '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="12" cy="12" r="3.5"/></svg>',
+  note:  '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M9 17.5V6l11-2.5v11.6a3 3 0 1 1-2-2.8V7.2l-7 1.6v8.7a3 3 0 1 1-2-2.8z"/></svg>',
+};
+$("miniPlay").innerHTML = ICON.play; $("miniNext").innerHTML = ICON.next;
+$("npPrev").innerHTML = ICON.prev; $("npPlay").innerHTML = ICON.play; $("npNext").innerHTML = ICON.next;
+
+function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+
+let toastTimer;
+function toast(t, ms) {
+  const el = $("toast");
+  if (!t) { el.classList.add("hidden"); return; }
+  el.textContent = t; el.classList.remove("hidden");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add("hidden"), ms || 3500);
+}
 
 if (!navigator.bluetooth) {
-  $("supportHint").textContent =
-    "This browser has no Bluetooth access. On iPhone, open this page in the free Bluefy app. On a PC, use Chrome or Edge.";
+  $("connectHint").textContent = "Ce navigateur n'a pas accès au Bluetooth. Sur iPhone, ouvre cette page dans l'app gratuite Bluefy.";
 }
 
-let msgTimer;
-function say(t, keep) {
-  $("msg").textContent = t || "";
-  clearTimeout(msgTimer);
-  if (t && !keep) msgTimer = setTimeout(() => $("msg").textContent = "", 6000);
-}
-
-const mmss = s => (s = Math.max(0, s | 0), String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"));
-const mss = s => s ? Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") : "";
-
-// windows fold open/closed by tapping their title bar (remembered on this phone)
-document.querySelectorAll("[data-toggle]").forEach(bar => {
-  const win = $(bar.dataset.toggle);
-  try { const v = localStorage.getItem("shut:" + win.id); if (v !== null) win.classList.toggle("shut", v === "1"); } catch (e) {}
-  bar.onclick = () => {
-    win.classList.toggle("shut");
-    try { localStorage.setItem("shut:" + win.id, win.classList.contains("shut") ? "1" : "0"); } catch (e) {}
-  };
-});
-
-// ---------------- connection to the jukebox (BLE) ----------------
-$("connectBtn").onclick = connect;
-
-async function connect() {
+$("connectBtn").onclick = async () => {
   try {
-    say("Searching...", true);
     device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SERVICE] }] });
     device.addEventListener("gattserverdisconnected", onDisconnected);
+    $("connectHint").textContent = "Connexion…";
     await openGatt();
-  } catch (e) {
-    say(e.message);
-  }
-}
+  } catch (e) { $("connectHint").textContent = e.message; }
+};
+$("offlineBtn").onclick = () => $("connect").classList.add("hidden");
 
-// When the page opens, reconnect on its own to a jukebox already allowed before
-// (works in browsers that support getDevices; otherwise just tap Connect).
+// reconnect by itself to a jukebox already allowed before
 (async () => {
   try {
     if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return;
@@ -343,9 +304,9 @@ async function connect() {
     if (!known.length) return;
     device = known[0];
     device.addEventListener("gattserverdisconnected", onDisconnected);
-    say("Reconnecting to the jukebox...", true);
+    $("connectHint").textContent = "Reconnexion au jukebox…";
     await openGatt();
-  } catch (e) { say(""); }
+  } catch (e) { $("connectHint").textContent = "Allume le jukebox, puis touche le bouton."; }
 })();
 
 async function openGatt() {
@@ -354,305 +315,631 @@ async function openGatt() {
   cmdChar = await svc.getCharacteristic(CMD);
   const st = await svc.getCharacteristic(STATUS);
   const rs = await svc.getCharacteristic(RESULT);
-  st.addEventListener("characteristicvaluechanged", e => showStatus(dec.decode(e.target.value)));
-  rs.addEventListener("characteristicvaluechanged", e => addResult(dec.decode(e.target.value)));
+  let ct = null;
+  try { ct = await svc.getCharacteristic(CATALOG); } catch (e) {}
+  st.addEventListener("characteristicvaluechanged", e => onStatus(dec.decode(e.target.value)));
+  rs.addEventListener("characteristicvaluechanged", e => onResult(dec.decode(e.target.value)));
   await st.startNotifications();
   await rs.startNotifications();
-  timeKnown = false;
-  showStatus(dec.decode(await st.readValue()));
-  send("speakers");                       // ask for the wanted speaker and the speakers seen
-  setConnected(true);
-  say("");
-  const q = $("searchBox").value.trim();  // search again after a reconnect
-  if (q.length >= 2) runSearch(q);
+  if (ct) {
+    ct.addEventListener("characteristicvaluechanged", e => onCatalogPiece(e.target.value));
+    await ct.startNotifications();
+  }
+  onStatus(dec.decode(await st.readValue()));
+  connected = true;
+  $("connect").classList.add("hidden");
+  send("info");          // which song list is on the card?
+  send("speakers");
+  renderSettings();
 }
-
-let updating = false;     // true after "Update mode": the jukebox is on Wi-Fi, don't chase it
 
 async function onDisconnected() {
-  setConnected(false);
-  if (updating) {
-    updating = false;
-    say("Update mode: in VS Code choose env:esp32s_ota and click Upload. When it's done, tap Connect.", true);
-    return;
+  connected = false; cmdChar = null;
+  status.speaker = -1;
+  renderSettings(); drawPlayer();
+  toast("Connexion perdue, reconnexion…", 6000);
+  for (let i = 0; i < 6; i++) {
+    try { await openGatt(); toast(""); return; } catch (e) { await new Promise(r => setTimeout(r, 2500)); }
   }
-  say("Connection lost, reconnecting...", true);
-  for (let i = 0; i < 5; i++) {
-    try { await openGatt(); return; } catch (e) { await new Promise(r => setTimeout(r, 2000)); }
-  }
-  say("Could not reconnect. Tap Connect.", true);
+  toast("");
+  $("connectHint").textContent = "Connexion perdue. Touche le bouton pour te reconnecter.";
+  $("connect").classList.remove("hidden");
 }
 
-function setConnected(on) {
-  connected = on;
-  $("lampPhone").classList.toggle("on", on);
-  $("player").classList.toggle("hidden", !on);
-  $("controls").classList.toggle("hidden", !on);
-  $("connectBox").classList.toggle("hidden", on);
-  if (!on) { setMarquee("*** JUKEBOX *** NOT CONNECTED ***"); showSpeaker(-1); }
-}
-
-// Commands are queued so two quick taps never collide on Bluetooth.
+// commands are queued so two quick taps never collide
 let queue = Promise.resolve();
 function send(text) {
-  if (!cmdChar) return;
-  queue = queue.then(() => cmdChar.writeValue(enc.encode(text))).catch(e => say(e.message));
+  if (!cmdChar) { if (!connected) $("connect").classList.remove("hidden"); return; }
+  queue = queue.then(() => cmdChar.writeValue(enc.encode(text))).catch(e => toast(e.message));
 }
 
-// ---------------- status ----------------
-// state|index|count|volume|shuffle|speaker|seconds|title|artist|album|position
-// speaker: 0 = not connected, 1 = connected, 2 = connecting, 3 = scan mode
-let elapsed = 0, timeKnown = false, lastKey = "";
-function showStatus(s) {
-  const p = s.split("|");
-  if (p.length < 10) return;
-  const prev = status;
-  status = { state: p[0].trim(), index: +p[1], count: +p[2], vol: +p[3], shuffle: p[4] === "1",
-             speaker: +p[5], secs: +p[6], title: p[7], artist: p[8], album: (p[9] || "").trim() };
-  const key = status.index + "|" + status.title;
-  if (lastKey && key !== lastKey) { elapsed = 0; timeKnown = true; }   // new song: the clock is exact from here
-  if (prev.state === "stop" && status.state === "play") { elapsed = 0; timeKnown = true; }
-  lastKey = key;
-  // newer jukebox programs also send the real position in the song (0..1000)
-  if (p.length > 10 && p[10].trim() !== "" && !seekDragging) {
-    status.pm = +p[10];
-    if (status.secs) { elapsed = Math.round(status.secs * status.pm / 1000); timeKnown = true; }
-  } else status.pm = prev.pm;
+// ====================================================================
+//  Song list (catalog): downloaded once from the card, kept on the phone
+// ====================================================================
+// catalog.txt: "#JUKEBOX-CATALOG 1<TAB>id<TAB>songs", then "@<TAB>artist<TAB>album" before
+// each album and "title<TAB>seconds" for each song, in the jukebox's song order.
+let songs = [], albums = [], artists = [], catId = load("catId") || "";
+const UNKNOWN_ARTIST = "Artiste inconnu", UNKNOWN_ALBUM = "Album inconnu";
 
-  const name = (status.artist ? status.artist + " - " : "") + (status.title || "");
-  setMarquee(name ? `${status.index + 1}. ${name}${status.secs ? " (" + mss(status.secs) + ")" : ""}` : "*** JUKEBOX ***");
-  $("trackNo").textContent = status.count ? `${status.index + 1}/${status.count}` : "--/--";
-  $("stateIcon").innerHTML = status.state === "play" ? "&#9654;" : status.state === "pause" ? "&#10074;&#10074;" : "&#9632;";
-  $("playBtn").classList.toggle("down", status.state === "play");
-  $("pauseBtn").classList.toggle("down", status.state === "pause");
-  if (!volDragging) { $("vol").value = status.vol; $("volText").textContent = status.vol + "%"; }
-  $("shuffleBtn").classList.toggle("on", status.shuffle);
-  $("lampShuf").classList.toggle("on", status.shuffle);
-  $("plInfo").textContent = `${status.count} songs on the card`;
-  showSpeaker(status.speaker);
-  markCurrent();
-  drawTime();
+function fold(s) {   // "Céline" -> "celine", "AC/DC" -> "acdc", "Metallica" -> "metalica"
+  return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]/g, "").replace(/([a-z])\1+/g, "$1");
 }
+function sortKey(s) {
+  return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/^(the|les|le|la|l')\s+/, "");
+}
+function letterOf(s) { const c = sortKey(s).charAt(0).toUpperCase(); return c >= "A" && c <= "Z" ? c : "#"; }
 
-let marqueeText = "";
-function setMarquee(t) {
-  if (t === marqueeText) return;
-  marqueeText = t;
-  const box = $("marquee"), span = $("marqueeText");
-  span.textContent = t;
-  box.classList.remove("scroll");
-  requestAnimationFrame(() => {
-    if (span.scrollWidth > box.clientWidth) {
-      span.textContent = t + "  ***  ";
-      box.style.setProperty("--dur", Math.max(6, t.length / 4) + "s");
-      box.classList.add("scroll");
+function parseCatalog(text) {
+  const lines = text.split("\n");
+  songs = []; albums = []; artists = [];
+  let al = null;
+  for (let i = 1; i < lines.length; i++) {
+    const f = lines[i].split("\t");
+    if (f.length === 3 && f[0] === "@") {
+      al = { artist: f[1] || UNKNOWN_ARTIST, name: f[2] || UNKNOWN_ALBUM, first: songs.length, count: 0, secs: 0 };
+      albums.push(al);
+    } else if (f.length === 2 && al) {
+      const s = { i: songs.length, title: f[0], secs: +f[1] || 0, al };
+      s.key = fold(s.title + " " + al.artist + " " + al.name);
+      songs.push(s); al.count++; al.secs += s.secs;
     }
-  });
+  }
+  albums = albums.filter(a => a.count);
+  const byName = new Map();
+  for (const a of albums) {
+    let ar = byName.get(a.artist.toLowerCase());
+    if (!ar) { ar = { name: a.artist, albums: [], first: a.first, count: 0 }; byName.set(a.artist.toLowerCase(), ar); artists.push(ar); }
+    ar.albums.push(a); ar.count += a.count;
+    a.ar = ar;
+  }
+  const cmp = (x, y) => sortKey(x).localeCompare(sortKey(y), "fr");
+  artists.sort((x, y) => cmp(x.name, y.name));
+  for (const a of albums) a.key = fold(a.name + " " + a.artist);
+  for (const a of artists) a.key = fold(a.name);
 }
 
-// The jukebox doesn't send the play position, so the clock counts here.
-// After (re)connecting in the middle of a song it shows the song length until the next song.
-setInterval(() => {
-  if (connected && status.state === "play" && status.speaker === 1) elapsed++;
-  drawTime();
-}, 1000);
-
-function drawTime() {
-  const t = $("time");
-  t.textContent = !connected ? "00:00" : timeKnown ? mmss(elapsed) : mmss(status.secs || 0);
-  t.classList.toggle("blink", connected && status.state === "pause");
-  const pct = timeKnown && status.secs ? Math.min(100, elapsed * 100 / status.secs) : (status.pm || 0) / 10;
-  if (!seekDragging) $("seek").value = pct;
+// downloading: pieces "C"+position(4 bytes)+data, then "E"+size(4 bytes)
+let dl = null;
+function startDownload(id, size) {
+  dl = { id, size, buf: new Uint8Array(size), got: 0, last: Date.now(), asked: Date.now() };
+  send("cat:0");
+  renderLibrary();
 }
-
-function showSpeaker(code) {
-  const led = $("spkLed"), lamp = $("lampSpk");
-  led.className = "led"; lamp.className = "lamp";
-  let text;
-  if (code === 1)      { led.classList.add("on");   lamp.classList.add("on");   text = "Speaker connected"; }
-  else if (code === 2) { led.classList.add("warn"); lamp.classList.add("warn"); text = "Connecting..."; }
-  else if (code === 3) { led.classList.add("scan"); lamp.classList.add("scan"); text = "Looking for speakers"; }
-  else if (code === 0) { led.classList.add("bad");  lamp.classList.add("bad");  text = "Speaker not connected"; }
-  else text = "Jukebox not connected";
-  $("spkState").textContent = text;
-  $("reconnectBtn").disabled = code !== 0;
-}
-
-// ---------------- visualizer (just for show, drawn on the phone) ----------------
-const vis = $("vis"), vctx = vis.getContext("2d");
-const NB = 19, lv = new Array(NB).fill(0), pk = new Array(NB).fill(0);
-let lastFrame = 0;
-function frame(ts) {
-  requestAnimationFrame(frame);
-  if (ts - lastFrame < 50) return;           // about 20 frames a second is plenty
-  lastFrame = ts;
-  const live = connected && status.state === "play" && status.speaker === 1;
-  const W = vis.width, H = vis.height, bw = W / NB;
-  vctx.fillStyle = "#000"; vctx.fillRect(0, 0, W, H);
-  for (let i = 0; i < NB; i++) {
-    const target = live ? Math.random() ** 1.6 * (1 - i / (NB * 1.4)) * H * 1.1 : 0;
-    lv[i] = target > lv[i] ? target : Math.max(0, lv[i] - H * 0.08);
-    pk[i] = lv[i] >= pk[i] ? lv[i] : Math.max(0, pk[i] - H * 0.025);
-    const h = Math.min(H, lv[i]);
-    const g = vctx.createLinearGradient(0, H, 0, 0);
-    g.addColorStop(0, "#109010"); g.addColorStop(.55, "#c8c800"); g.addColorStop(1, "#e02000");
-    vctx.fillStyle = g;
-    vctx.fillRect(i * bw + 1, H - h, bw - 3, h);
-    if (pk[i] > 1) { vctx.fillStyle = "#b0b0c0"; vctx.fillRect(i * bw + 1, H - Math.min(H, pk[i]) - 2, bw - 3, 2); }
+function onCatalogPiece(dv) {
+  if (!dl) return;
+  const type = String.fromCharCode(dv.getUint8(0)), pos = dv.getUint32(1, true);
+  dl.last = Date.now();
+  if (type === "C") {
+    const n = dv.byteLength - 5;
+    if (pos === dl.got) {
+      dl.buf.set(new Uint8Array(dv.buffer, dv.byteOffset + 5, n), pos);
+      dl.got += n;
+    } else if (pos > dl.got) askAgain();
+    drawProgress();
+  } else if (type === "E") {
+    if (dl.got >= dl.size) {
+      const text = dec.decode(dl.buf);
+      parseCatalog(text);
+      store("catalog", text); store("catId", dl.id);
+      catId = dl.id; dl = null;
+      toast(`Bibliothèque prête : ${songs.length} chansons`);
+      renderAll();
+    } else askAgain();
   }
 }
-requestAnimationFrame(frame);
+function askAgain() {
+  if (Date.now() - dl.asked < 1000) return;
+  dl.asked = Date.now();
+  send("cat:" + dl.got);
+}
+setInterval(() => { if (dl && connected && Date.now() - dl.last > 2500) { dl.last = Date.now(); dl.asked = 0; askAgain(); } }, 1000);
+function drawProgress() {
+  const p = $("dlProg");
+  if (p && dl) { p.style.width = (dl.got * 100 / dl.size) + "%"; $("dlText").textContent = `Chargement de la bibliothèque… ${Math.floor(dl.got * 100 / dl.size)} %`; }
+}
 
-// ---------------- controls ----------------
-$("playBtn").onclick = () => send("play");
-$("pauseBtn").onclick = () => send(status.state === "pause" ? "play" : "pause");
-$("stopBtn").onclick = () => send("stop");
-$("nextBtn").onclick = () => send("next");
-$("prevBtn").onclick = () => send("prev");
-$("shuffleBtn").onclick = () => send("shuffle:" + (status.shuffle ? 0 : 1));
+let cardInfo = null;
+function onResult(line) {
+  const f = line.split("\t");
+  if (f[0] === "cat") {
+    cardInfo = { id: f[1], size: +f[2], songs: +f[3] };
+    if (f[1] === "none") { songs.length || renderAll(); return; }
+    if (f[1] !== catId || !songs.length) startDownload(f[1], +f[2]);
+    return;
+  }
+  if (f[0] === "spk") { addSpeaker(f[1], +f[2]); return; }
+  if (f[0] === "tgt") { wantedSpeaker = f[1]; renderSettings(); }
+}
 
-// TIME bar: drag (or tap) to jump in the song; sent when the finger lets go
-let seekDragging = false;
-$("seek").oninput = e => {
-  seekDragging = true;
-  if (status.secs) $("time").textContent = mmss(status.secs * e.target.value / 100);
-};
+// ====================================================================
+//  Status from the jukebox
+// ====================================================================
+// state|index|count|volume|shuffle|speaker|seconds|title|artist|album|position|rangeFirst|rangeCount
+let elapsed = 0, lastKey = "", seekDragging = false, volDragging = false;
+function onStatus(s) {
+  const p = s.split("|");
+  if (p.length < 10) return;
+  const prevIndex = status.index;
+  status = { state: p[0].trim(), index: +p[1], count: +p[2], vol: +p[3], shuffle: p[4] === "1",
+             speaker: +p[5], secs: +p[6], title: p[7], artist: p[8], album: (p[9] || "").trim(),
+             pm: p.length > 10 ? +p[10] : 0 };
+  const key = status.index + "|" + status.title;
+  if (!seekDragging && status.secs) elapsed = status.secs * status.pm / 1000;
+  if (key !== lastKey) { lastKey = key; if (!status.pm) elapsed = 0; }
+  drawPlayer();
+  if (prevIndex !== status.index) markPlaying();
+}
+
+setInterval(() => {
+  if (connected && status.state === "play" && status.speaker === 1 && !seekDragging) {
+    elapsed = Math.min(status.secs || 0, elapsed + 0.5);
+    drawTime();
+  }
+}, 500);
+
+const mss = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+
+function hue(text) { let h = 0; for (const c of text || "") h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
+function coverStyle(el, name, sub) {
+  const h = hue((name || "") + "|" + (sub || "")), a = h % 360, b = (a + 40 + (h >> 9) % 80) % 360;
+  el.style.background = `linear-gradient(135deg, hsl(${a} 65% 52%), hsl(${b} 60% 32%))`;
+  const words = (name || "?").replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).filter(Boolean);
+  el.textContent = ((words[0] || "?")[0] + (words[1] ? words[1][0] : "")).toUpperCase();
+  return el;
+}
+function makeCover(name, sub, cls) { const d = document.createElement("div"); d.className = "cover " + (cls || ""); return coverStyle(d, name, sub); }
+
+function drawPlayer() {
+  const has = status.index >= 0 && status.title;
+  $("mini").classList.toggle("hidden", !has);
+  const playing = status.state === "play";
+  $("miniPlay").innerHTML = playing ? ICON.pause : ICON.play;
+  $("npPlay").innerHTML = playing ? ICON.pause : ICON.play;
+  $("np").classList.toggle("paused", !playing);
+  $("miniTitle").textContent = status.title || "Pas de lecture";
+  $("miniArtist").textContent = status.artist || "";
+  $("npTitle").textContent = status.title || "";
+  $("npArtist").textContent = (status.artist || "") + (status.album ? " — " + status.album : "");
+  const cKey = status.album + "|" + status.artist;
+  if ($("np").dataset.c !== cKey) {
+    $("np").dataset.c = cKey;
+    coverStyle($("miniCover"), status.album || status.title, status.artist);
+    coverStyle($("npCover"), status.album || status.title, status.artist);
+    const h = hue((status.album || status.title || "") + "|" + (status.artist || "")) % 360;
+    $("np").style.background = `linear-gradient(180deg, hsl(${h} 45% 34%), hsl(${h} 35% 14%))`;
+  }
+  if (!volDragging) setSlider($("vol"), status.vol || 0, 100);
+  $("npShuffle").classList.toggle("on", status.shuffle);
+  const sp = { 1: "Enceinte connectée", 2: "Connexion à l'enceinte…", 3: "Recherche d'enceintes…", 0: "Enceinte non connectée" };
+  $("npSpk").textContent = connected ? (sp[status.speaker] || "") : "Jukebox non connecté";
+  drawTime();
+}
+function setSlider(el, v, max) { el.value = v; el.style.setProperty("--p", (v * 100 / max) + "%"); }
+function drawTime() {
+  const secs = status.secs || 0;
+  if (!seekDragging) setSlider($("seek"), secs ? Math.round(elapsed * 1000 / secs) : 0, 1000);
+  const t = seekDragging ? secs * $("seek").value / 1000 : elapsed;
+  $("tNow").textContent = mss(t);
+  $("tLeft").textContent = "-" + mss(secs - t);
+}
+
+// ---------------- now playing controls ----------------
+$("mini").onclick = e => { if (!e.target.closest(".ib")) openNP(true); };
+$("miniPlay").onclick = () => send(status.state === "play" ? "pause" : "play");
+$("miniNext").onclick = () => send("next");
+$("npPlay").onclick = () => send(status.state === "play" ? "pause" : "play");
+$("npNext").onclick = () => send("next");
+$("npPrev").onclick = () => send("prev");
+$("npShuffle").onclick = () => { send("shuffle:" + (status.shuffle ? 0 : 1)); status.shuffle = !status.shuffle; drawPlayer(); };
+$("npSpeaker").onclick = () => { openNP(false); showTab("Settings"); };
+$("npClose").onclick = () => openNP(false);
+function openNP(on) { $("np").classList.toggle("open", on); }
+// swipe down to close
+let npY = null;
+$("np").addEventListener("touchstart", e => { if (!e.target.closest("input")) npY = e.touches[0].clientY; }, { passive: true });
+$("np").addEventListener("touchend", e => { if (npY !== null && e.changedTouches[0].clientY - npY > 90) openNP(false); npY = null; });
+
+$("seek").oninput = e => { seekDragging = true; setSlider(e.target, +e.target.value, 1000); drawTime(); };
 function seekDone() {
-  if (!seekDragging) return;                 // already sent (change + touchend both fire)
+  if (!seekDragging) return;
   seekDragging = false;
-  const pct = Math.min(99, +$("seek").value);
-  send("seek:" + pct);
-  status.pm = pct * 10;                      // stay where the finger let go
-  if (status.secs) { elapsed = Math.round(status.secs * pct / 100); timeKnown = true; say("Jump to " + mmss(elapsed)); }
+  const pm = Math.min(999, +$("seek").value);
+  send("seek:" + pm);
+  elapsed = (status.secs || 0) * pm / 1000;
   drawTime();
 }
 $("seek").onchange = seekDone;
 $("seek").addEventListener("touchend", () => setTimeout(seekDone, 50));
-$("seek").addEventListener("pointerup", () => setTimeout(seekDone, 50));
 
-let volDragging = false, volTimer;
+let volTimer;
 $("vol").oninput = e => {
   volDragging = true;
-  $("volText").textContent = e.target.value + "%";
+  setSlider(e.target, +e.target.value, 100);
   clearTimeout(volTimer);
-  volTimer = setTimeout(() => { send("vol:" + e.target.value); volDragging = false; }, 150);
+  volTimer = setTimeout(() => { send("vol:" + e.target.value); status.vol = +e.target.value; volDragging = false; }, 150);
 };
 
-// ---------------- search (runs on the jukebox, results arrive one by one) ----------------
-let searchTimer, searchQuery = "";
-$("searchBox").oninput = () => {
-  clearTimeout(searchTimer);
-  const q = $("searchBox").value.trim();
-  if (q.length >= 2) searchTimer = setTimeout(() => runSearch(q), 600);   // search while typing
-  else if (!q) clearResults();
-};
-$("searchForm").onsubmit = e => {
-  e.preventDefault();
-  clearTimeout(searchTimer);
-  const q = $("searchBox").value.trim();
-  if (q) runSearch(q);
-  $("searchBox").blur();
-};
-$("clearBtn").onclick = () => { $("searchBox").value = ""; clearResults(); };
-$("curBtn").onclick = () => {
-  const li = $("results").querySelector("li.cur");
-  if (li) li.scrollIntoView({ block: "center" });
-  else if (status.artist) { $("searchBox").value = status.artist; runSearch(status.artist); }
-};
-
-function runSearch(q) {
-  if (q === searchQuery && $("results").children.length && !searching) return;
-  searchQuery = q;
-  clearResults(true);
-  searching = true;
-  $("plInfo").textContent = "searching...";
-  send("find:" + q);
+// ====================================================================
+//  Playing from the lists
+// ====================================================================
+// "next" stays inside the album / artist you started from, like on the iPhone
+function playSong(i, first, count) {
+  if (first === undefined) send("idx:" + i);
+  else send(`play:${i}:${first}:${count}`);
+  elapsed = 0;
+  if (window.innerHeight > 500) setTimeout(() => openNP(true), 150);
+}
+function playGroup(first, count, shuf) {
+  send("shuffle:" + (shuf ? 1 : 0));
+  playSong(shuf ? first + Math.floor(Math.random() * count) : first, first, count);
+}
+function markPlaying() {
+  document.querySelectorAll(".row.playing").forEach(r => r.classList.remove("playing"));
+  document.querySelectorAll(`.row[data-i="${status.index}"]`).forEach(r => r.classList.add("playing"));
 }
 
-let searching = false;
-function clearResults(keepHint) {
-  $("results").innerHTML = "";
-  $("plEmpty").classList.toggle("hidden", !!keepHint);
-  if (!keepHint) { searchQuery = ""; $("plInfo").textContent = `${status.count || 0} songs on the card`; }
+// ====================================================================
+//  Pages (Bibliothèque > Artistes / Albums / Chansons, Recherche, Enceinte)
+// ====================================================================
+const stack = [];   // library navigation: [{render, scroll}]
+let tab = "Library";
+
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+  if (b.dataset.tab === tab && tab === "Library") { stack.length = 0; renderLibrary(); }
+  showTab(b.dataset.tab);
+});
+function showTab(t) {
+  tab = t;
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  for (const n of ["Library", "Search", "Settings"]) $("page" + n).classList.toggle("hidden", n !== t);
+  $("azbar").classList.toggle("hidden", t !== "Library" || !$("pageLibrary").querySelector(".letter"));
+  if (t === "Settings") renderSettings();
+  if (t === "Search") setTimeout(() => { const i = $("q"); if (i && !i.value) i.focus(); }, 50);
 }
 
-function markCurrent() {
-  for (const li of $("results").children) li.classList.toggle("cur", +li.dataset.idx === status.index);
+function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; }
+function txt(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; e.textContent = text; return e; }
+
+function row({ cover, t1, t2, num, dur, chev, i, onClick, menu, icon }) {
+  const r = el("li", "row" + (menu ? " menu" : ""));
+  if (icon) r.appendChild(el("span", "ico", icon));
+  if (cover) r.appendChild(cover);
+  if (num !== undefined) r.appendChild(txt("span", "num", num));
+  const tx = el("div", "txt");
+  tx.appendChild(txt("div", "t1", t1));
+  if (t2) tx.appendChild(txt("div", "t2", t2));
+  r.appendChild(tx);
+  if (dur !== undefined) r.appendChild(txt("span", "dur", dur));
+  if (chev) r.appendChild(el("span", "chev", ICON.chev));
+  if (i !== undefined) { r.dataset.i = i; if (i === status.index) r.classList.add("playing"); }
+  r.onclick = onClick;
+  return r;
 }
 
-function addSong(idx, artist, title, secs) {
-  const li = document.createElement("li");
-  li.dataset.idx = idx;
-  li.innerHTML = '<span class="n"></span><span class="t"></span><span class="d"></span>';
-  li.children[0].textContent = ($("results").children.length + 1) + ".";
-  li.children[1].textContent = (artist ? artist + " - " : "") + title;
-  li.children[2].textContent = mss(+secs || 0);
-  li.classList.toggle("cur", +idx === status.index);
-  li.onclick = () => {
-    for (const x of $("results").querySelectorAll(".sel")) x.classList.remove("sel");
-    li.classList.add("sel");
-    timeKnown = true; elapsed = 0;
-    send("idx:" + idx);
+function navbar(page, title) {
+  if (!stack.length) return;
+  const nb = el("div", "navbar");
+  const b = el("button", "back", ICON.back);
+  b.appendChild(document.createTextNode(stack.length > 1 ? stack[stack.length - 2].title : "Bibliothèque"));
+  b.onclick = goBack;
+  nb.appendChild(b);
+  page.appendChild(nb);
+}
+function push(title, render) {
+  const page = $("pageLibrary");
+  if (stack.length) stack[stack.length - 1].scroll = page.scrollTop;
+  else rootScroll = page.scrollTop;
+  stack.push({ title, render });
+  drawLibraryTop();
+  page.scrollTop = 0;
+}
+let rootScroll = 0;
+function goBack() {
+  stack.pop();
+  drawLibraryTop();
+  $("pageLibrary").scrollTop = stack.length ? stack[stack.length - 1].scroll || 0 : rootScroll;
+}
+// swipe from the left edge = back (like the iPhone)
+let swX = null;
+$("pageLibrary").addEventListener("touchstart", e => { const x = e.touches[0].clientX; swX = x < 30 && stack.length ? x : null; }, { passive: true });
+$("pageLibrary").addEventListener("touchend", e => { if (swX !== null && e.changedTouches[0].clientX - swX > 80) goBack(); swX = null; });
+
+function drawLibraryTop() {
+  const page = $("pageLibrary");
+  page.innerHTML = "";
+  if (stack.length) { navbar(page); stack[stack.length - 1].render(page); }
+  else renderLibraryRoot(page);
+  $("azbar").classList.toggle("hidden", tab !== "Library" || !page.querySelector(".letter"));
+  buildAz(page);
+}
+function renderLibrary() { drawLibraryTop(); }
+
+function noCatalogBox(page) {
+  if (dl) {
+    const b = el("div");
+    b.appendChild(txt("div", "sub", "")).id = "dlText";
+    const pr = el("div", "prog"); const bar = el("div"); bar.id = "dlProg"; pr.appendChild(bar); b.appendChild(pr);
+    b.appendChild(txt("div", "sub", "Une seule fois : la liste reste ensuite sur ton téléphone. La musique continue pendant ce temps."));
+    page.appendChild(b); drawProgress();
+    return true;
+  }
+  if (!songs.length) {
+    page.appendChild(txt("div", "empty", cardInfo && cardInfo.id === "none"
+      ? "La carte SD n'a pas encore de catalogue. Sur le PC, lance  python make_library.py E:\\  puis remets la carte."
+      : connected ? "Chargement…" : "Connecte-toi au jukebox pour charger la bibliothèque."));
+    return true;
+  }
+  return false;
+}
+
+function renderLibraryRoot(page) {
+  page.appendChild(txt("h1", "big", "Bibliothèque"));
+  if (noCatalogBox(page)) return;
+  const ul = el("ul", "list");
+  ul.appendChild(row({ menu: true, icon: ICON.mic, t1: "Artistes", chev: true, onClick: () => push("Artistes", renderArtists) }));
+  ul.appendChild(row({ menu: true, icon: ICON.album, t1: "Albums", chev: true, onClick: () => push("Albums", renderAlbums) }));
+  ul.appendChild(row({ menu: true, icon: ICON.note, t1: "Chansons", chev: true, onClick: () => push("Chansons", renderSongs) }));
+  page.appendChild(ul);
+  const btns = el("div", "btns");
+  const sh = el("button", "pill", ICON.shuf + "Tout en aléatoire");
+  sh.onclick = () => playGroup(0, songs.length, true);
+  btns.appendChild(sh);
+  page.appendChild(btns);
+  page.appendChild(txt("div", "foot", `${artists.length} artistes · ${albums.length} albums · ${songs.length} chansons`));
+}
+
+function lettered(page, items, nameOf, makeRow) {
+  const ul = el("ul", "list az");
+  let last = null;
+  for (const it of items) {
+    const L = letterOf(nameOf(it));
+    if (L !== last) { last = L; const h = txt("li", "letter", L); h.dataset.l = L; ul.appendChild(h); }
+    ul.appendChild(makeRow(it));
+  }
+  page.appendChild(ul);
+}
+
+function renderArtists(page) {
+  page.appendChild(txt("h1", "big", "Artistes"));
+  lettered(page, artists, a => a.name, a => row({
+    cover: makeCover(a.name, "", "s round"), t1: a.name,
+    t2: `${a.albums.length} album${a.albums.length > 1 ? "s" : ""} · ${a.count} chanson${a.count > 1 ? "s" : ""}`,
+    chev: true, onClick: () => openArtist(a) }));
+}
+
+function albumGrid(page, list, showArtist) {
+  const g = el("div", "grid");
+  for (const a of list) {
+    const t = el("div", "tile");
+    t.appendChild(makeCover(a.name, a.artist));
+    t.appendChild(txt("div", "t1", a.name));
+    t.appendChild(txt("div", "t2", showArtist ? a.artist : `${a.count} chanson${a.count > 1 ? "s" : ""}`));
+    t.onclick = () => openAlbum(a);
+    g.appendChild(t);
+  }
+  page.appendChild(g);
+}
+
+function renderAlbums(page) {
+  page.appendChild(txt("h1", "big", "Albums"));
+  const list = albums.slice().sort((x, y) => sortKey(x.name).localeCompare(sortKey(y.name), "fr"));
+  albumGrid(page, list, true);
+}
+
+let songsByTitle = null;
+function renderSongs(page) {
+  page.appendChild(txt("h1", "big", "Chansons"));
+  const btns = el("div", "btns");
+  const pl = el("button", "pill", ICON.play + "Lecture"); pl.onclick = () => playGroup(0, songs.length, false);
+  const sh = el("button", "pill", ICON.shuf + "Aléatoire"); sh.onclick = () => playGroup(0, songs.length, true);
+  btns.append(pl, sh); page.appendChild(btns);
+  if (!songsByTitle) songsByTitle = songs.slice().sort((x, y) => sortKey(x.title).localeCompare(sortKey(y.title), "fr"));
+  lettered(page, songsByTitle, s => s.title, s => row({
+    cover: makeCover(s.al.name, s.al.artist, "s"), t1: s.title, t2: s.al.artist, i: s.i,
+    onClick: () => playSong(s.i) }));
+}
+
+function openArtist(a) {
+  push(a.name, page => {
+    const h = el("div", "head");
+    h.appendChild(makeCover(a.name, "", "round"));
+    h.appendChild(txt("div", "ttl", a.name));
+    page.appendChild(h);
+    const btns = el("div", "btns");
+    const pl = el("button", "pill", ICON.play + "Lecture"); pl.onclick = () => playGroup(a.first, a.count, false);
+    const sh = el("button", "pill", ICON.shuf + "Aléatoire"); sh.onclick = () => playGroup(a.first, a.count, true);
+    btns.append(pl, sh); page.appendChild(btns);
+    page.appendChild(txt("h2", "", "Albums"));
+    albumGrid(page, a.albums, false);
+    page.appendChild(txt("h2", "", "Chansons"));
+    const ul = el("ul", "list");
+    for (let i = a.first; i < a.first + a.count; i++) {
+      const s = songs[i];
+      ul.appendChild(row({ cover: makeCover(s.al.name, s.al.artist, "s"), t1: s.title, t2: s.al.name, dur: mss(s.secs), i,
+        onClick: () => playSong(i, a.first, a.count) }));
+    }
+    page.appendChild(ul);
+  });
+}
+
+function openAlbum(a) {
+  push(a.name, page => {
+    const h = el("div", "head");
+    h.appendChild(makeCover(a.name, a.artist));
+    h.appendChild(txt("div", "ttl", a.name));
+    const ar = txt("button", "art", a.artist);
+    ar.onclick = () => openArtist(a.ar);
+    h.appendChild(ar);
+    page.appendChild(h);
+    const btns = el("div", "btns");
+    const pl = el("button", "pill", ICON.play + "Lecture"); pl.onclick = () => playGroup(a.first, a.count, false);
+    const sh = el("button", "pill", ICON.shuf + "Aléatoire"); sh.onclick = () => playGroup(a.first, a.count, true);
+    btns.append(pl, sh); page.appendChild(btns);
+    const ul = el("ul", "list");
+    for (let k = 0; k < a.count; k++) {
+      const i = a.first + k, s = songs[i];
+      ul.appendChild(row({ num: k + 1, t1: s.title, dur: mss(s.secs), i, onClick: () => playSong(i, a.first, a.count) }));
+    }
+    page.appendChild(ul);
+    page.appendChild(txt("div", "foot", `${a.count} chanson${a.count > 1 ? "s" : ""}, ${Math.round(a.secs / 60)} minutes`));
+  });
+}
+
+// A-Z index on the right edge
+function buildAz(page) {
+  const bar = $("azbar");
+  bar.innerHTML = "";
+  const letters = [...page.querySelectorAll(".letter")];
+  if (!letters.length) return;
+  const all = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#".split("");
+  for (const L of all) bar.appendChild(txt("span", "", L));
+  const go = y => {
+    const r = bar.getBoundingClientRect();
+    const L = all[Math.max(0, Math.min(all.length - 1, Math.floor((y - r.top) / r.height * all.length)))];
+    let target = letters.find(h => h.dataset.l >= L && h.dataset.l !== "#") || (L === "#" ? letters.find(h => h.dataset.l === "#") : null) || letters[letters.length - 1];
+    page.scrollTop = target.offsetTop - 4;
   };
-  $("results").appendChild(li);
-  $("plInfo").textContent = `${$("results").children.length} found...`;
+  bar.ontouchstart = bar.ontouchmove = e => { e.preventDefault(); go(e.touches[0].clientY); };
+  bar.onclick = e => go(e.clientY);
 }
 
-// ---------------- speaker ----------------
-$("reconnectBtn").onclick = () => { send("reconnect"); say("Trying the speaker now..."); };
-$("scanBtn").onclick = () => {
-  if (!confirm("Find new speakers?\n\nThe music pauses for about 40 seconds while the jukebox restarts and looks for speakers in pairing mode. Then it goes back to your speaker and the music continues by itself.")) return;
-  clearSpeakers();
-  send("scan");
-  say("Looking for speakers for 30 s... the music comes back by itself.", true);
-};
-$("speakerBtn").onclick = () => {
-  const name = $("speakerBox").value.trim();
-  if (name) chooseSpeaker(name);
-};
+// ---------------- search ----------------
+function renderSearch() {
+  const page = $("pageSearch");
+  page.innerHTML = "";
+  page.appendChild(txt("h1", "big", "Recherche"));
+  const box = el("div", "searchbox", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>');
+  const inp = document.createElement("input");
+  inp.id = "q"; inp.type = "text"; inp.enterKeyHint = "search"; inp.placeholder = "Artistes, albums, chansons";
+  inp.autocomplete = "off"; inp.autocorrect = "off"; inp.spellcheck = false;
+  inp.value = load("lastSearch") || "";
+  const clr = txt("button", "", "✕"); clr.onclick = () => { inp.value = ""; runSearch(); inp.focus(); };
+  box.append(inp, clr);
+  page.appendChild(box);
+  const res = el("div"); res.id = "res"; page.appendChild(res);
+  let t;
+  inp.oninput = () => { clearTimeout(t); t = setTimeout(runSearch, 200); };
+  inp.onkeydown = e => { if (e.key === "Enter") inp.blur(); };
+  runSearch();
+}
+function runSearch() {
+  const q = fold($("q").value), res = $("res");
+  store("lastSearch", $("q").value);
+  res.innerHTML = "";
+  if (!songs.length) { noCatalogBox(res); return; }
+  if (!q) { res.appendChild(txt("div", "empty", "Tape un nom d'artiste, d'album ou de chanson. Les accents et les fautes de lettres doublées ne comptent pas.")); return; }
+  const ar = artists.filter(a => a.key.includes(q)).slice(0, 8);
+  const al = albums.filter(a => a.key.includes(q)).slice(0, 10);
+  const so = songs.filter(s => s.key.includes(q));
+  if (!ar.length && !al.length && !so.length) { res.appendChild(txt("div", "empty", "Aucun résultat.")); return; }
+  if (ar.length) {
+    res.appendChild(txt("h2", "", "Artistes"));
+    const ul = el("ul", "list");
+    for (const a of ar) ul.appendChild(row({ cover: makeCover(a.name, "", "s round"), t1: a.name, t2: `${a.count} chansons`, chev: true,
+      onClick: () => { showTab("Library"); stack.length = 0; openArtist(a); } }));
+    res.appendChild(ul);
+  }
+  if (al.length) {
+    res.appendChild(txt("h2", "", "Albums"));
+    const ul = el("ul", "list");
+    for (const a of al) ul.appendChild(row({ cover: makeCover(a.name, a.artist, "s"), t1: a.name, t2: a.artist, chev: true,
+      onClick: () => { showTab("Library"); stack.length = 0; openAlbum(a); } }));
+    res.appendChild(ul);
+  }
+  if (so.length) {
+    res.appendChild(txt("h2", "", `Chansons (${so.length})`));
+    const ul = el("ul", "list");
+    for (const s of so.slice(0, 300)) ul.appendChild(row({ cover: makeCover(s.al.name, s.al.artist, "s"), t1: s.title,
+      t2: s.al.artist + " · " + s.al.name, i: s.i, onClick: () => playSong(s.i, s.al.first, s.al.count) }));
+    res.appendChild(ul);
+  }
+}
+
+// ---------------- speaker (settings) ----------------
+let wantedSpeaker = "", seenSpeakers = new Map();
+function addSpeaker(name, rssi) { seenSpeakers.set(name, rssi); renderSettings(); }
+
+function renderSettings() {
+  const page = $("pageSettings");
+  if (tab !== "Settings" && page.childElementCount) return;
+  page.innerHTML = "";
+  page.appendChild(txt("h1", "big", "Enceinte"));
+  const codes = { 1: ["ok", "Connectée"], 2: ["warn", "Connexion…"], 3: ["scan", "Recherche d'enceintes (30 s)…"], 0: ["bad", "Non connectée"] };
+  const [cls, label] = connected ? (codes[status.speaker] || ["", "?"]) : ["", "Jukebox non connecté"];
+  const g1 = el("div", "group");
+  const r1 = row({ t1: wantedSpeaker || "Enceinte", t2: label });
+  r1.prepend(el("span", "dot " + cls));
+  g1.appendChild(r1);
+  const rc = row({ t1: "Reconnecter maintenant", onClick: () => { send("reconnect"); toast("Essai avec l'enceinte…"); } });
+  rc.querySelector(".t1").classList.add("act");
+  g1.appendChild(rc);
+  page.appendChild(g1);
+
+  page.appendChild(txt("div", "ghead", "Changer d'enceinte"));
+  const g2 = el("div", "group");
+  const sc = row({ t1: "Chercher des enceintes", onClick: () => ask("Chercher des enceintes ?",
+    "Mets l'enceinte en mode appairage. La musique s'arrête environ 40 secondes, puis reprend toute seule.",
+    "Chercher", () => { seenSpeakers.clear(); send("scan"); toast("Recherche pendant 30 secondes…", 6000); }) });
+  sc.querySelector(".t1").classList.add("act");
+  g2.appendChild(sc);
+  for (const [name, rssi] of seenSpeakers) {
+    const r = row({ t1: name, t2: name === wantedSpeaker ? "Enceinte actuelle" : "Toucher pour l'utiliser",
+      onClick: () => chooseSpeaker(name) });
+    r.appendChild(txt("span", "bars", rssi > -60 ? "▂▄▆█" : rssi > -75 ? "▂▄▆" : "▂▄"));
+    g2.appendChild(r);
+  }
+  const f = el("div", "field");
+  const inp = document.createElement("input"); inp.placeholder = "Ou tape le nom de l'enceinte"; inp.id = "spkName";
+  const ok = txt("button", "", "Utiliser"); ok.onclick = () => { const n = inp.value.trim(); if (n) chooseSpeaker(n); };
+  f.append(inp, ok); g2.appendChild(f);
+  page.appendChild(g2);
+  page.appendChild(txt("div", "gfoot", "Changer d'enceinte efface tout ce que le jukebox sait de l'ancienne, puis il redémarre et se connecte à la nouvelle. La chanson reprend où elle était."));
+
+  page.appendChild(txt("div", "ghead", "Bibliothèque"));
+  const g3 = el("div", "group");
+  g3.appendChild(row({ t1: songs.length ? `${songs.length} chansons sur le téléphone` : "Pas encore chargée",
+    t2: cardInfo ? `Carte SD : ${cardInfo.songs} chansons` : "" }));
+  const rl = row({ t1: "Recharger depuis la carte", onClick: () => {
+    if (!connected || !cardInfo || cardInfo.id === "none") { toast("Connecte-toi au jukebox d'abord."); return; }
+    showTab("Library"); stack.length = 0; startDownload(cardInfo.id, cardInfo.size); } });
+  rl.querySelector(".t1").classList.add("act");
+  g3.appendChild(rl);
+  page.appendChild(g3);
+  if (!connected) {
+    const b = txt("button", "bigbtn", "Se connecter au jukebox");
+    b.style.margin = "0 auto"; b.style.display = "block";
+    b.onclick = () => $("connect").classList.remove("hidden");
+    page.appendChild(b);
+  }
+}
+
 function chooseSpeaker(name) {
-  send("speaker:" + name);
-  say("Using " + name + ". The jukebox restarts and connects to it...", true);
-}
-$("otaBtn").onclick = () => {
-  updating = true;
-  send("ota");
-  say("Update mode: upload from VS Code now (env:esp32s_ota). Reconnect when it's done.", true);
-};
-
-function clearSpeakers() { $("speakers").innerHTML = ""; $("spkEmpty").classList.remove("hidden"); }
-
-function addSpeaker(name, rssi) {
-  $("spkEmpty").classList.add("hidden");
-  let li = [...$("speakers").children].find(x => x.dataset.name === name);
-  if (!li) {
-    li = document.createElement("li");
-    li.dataset.name = name;
-    li.innerHTML = '<span class="n"></span><span class="t"></span><span class="d"></span>';
-    li.onclick = () => chooseSpeaker(name);
-    $("speakers").appendChild(li);
-  }
-  li.children[0].textContent = "♫";
-  li.children[1].textContent = name;
-  li.children[2].textContent = rssi > -60 ? "▂▄▆" : rssi > -75 ? "▂▄ " : "▂  ";
+  ask(`Utiliser « ${name} » ?`, "Le jukebox oublie l'ancienne enceinte, redémarre et se connecte à celle-ci (environ 15 secondes).",
+    "Utiliser", () => { send("speaker:" + name); wantedSpeaker = name; toast("Changement d'enceinte…", 8000); });
 }
 
-// ---------------- messages from the jukebox (results channel) ----------------
-function addResult(line) {
-  const f = line.split("\t");
-  if (f[0] === "spk") { addSpeaker(f[1], +f[2]); return; }
-  if (f[0] === "tgt") { $("spkName").textContent = "Speaker: " + f[1]; return; }
-  if (line === "begin") { $("results").innerHTML = ""; return; }   // a new search started
-  if (line === "end") {
-    searching = false;
-    const n = $("results").children.length;
-    $("plInfo").textContent = n ? `${n} song${n === 1 ? "" : "s"} found` : "nothing found";
-    $("plEmpty").classList.toggle("hidden", n > 0);
-    if (!n) $("plEmpty").textContent = "Nothing found. Try fewer letters, or part of a word.";
-    return;
-  }
-  if (/^\d+$/.test(f[0])) addSong(f[0], f[1], f[2] || "", f[3]);
+function ask(title, text, yes, fn) {
+  const c = $("sheetCard");
+  c.innerHTML = "";
+  const m = el("div", "msg"); m.appendChild(txt("b", "", title)); m.appendChild(document.createTextNode(text));
+  const b = txt("button", "", yes);
+  b.onclick = () => { $("sheet").classList.add("hidden"); fn(); };
+  c.append(m, b);
+  $("sheet").classList.remove("hidden");
 }
+$("sheetCancel").onclick = () => $("sheet").classList.add("hidden");
+$("sheet").onclick = e => { if (e.target.id === "sheet") $("sheet").classList.add("hidden"); };
+
+function renderAll() { songsByTitle = null; stack.length = 0; drawLibraryTop(); renderSearch(); renderSettings(); }
+
+// start: use the song list kept on this phone (works even before connecting)
+(function init() {
+  const cached = load("catalog");
+  if (cached) { try { parseCatalog(cached); } catch (e) { songs = []; } }
+  renderAll();
+  drawPlayer();
+})();
 </script>
 </body>
 </html>
